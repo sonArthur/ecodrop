@@ -135,6 +135,10 @@ class EcoDropGame:
         self.feedback_color = self.WHITE
         self.feedback_timer = 0
 
+        # Guarda as cores de destaque das lixeiras.
+        # A chave representa o índice da lixeira.
+        self.highlighted_bins = {}
+
     def _start_game(self) -> None:
         """
         Inicia uma nova partida.
@@ -274,9 +278,14 @@ class EcoDropGame:
         if self.state != self.PLAYING:
             return
 
-        # Atualiza a duração das mensagens.
+       # Atualiza a duração das mensagens e dos destaques.
         if self.feedback_timer > 0:
+
             self.feedback_timer -= 1
+
+     # Remove os destaques quando o tempo termina.
+        if self.feedback_timer == 0:
+            self.highlighted_bins.clear()
 
         # Cria um novo resíduo quando necessário.
         if self.current_item is None:
@@ -320,18 +329,25 @@ class EcoDropGame:
         target_bin = self.bins[landed_lane]
 
         # Localiza a lixeira que corresponde à categoria
-        # correta do resíduo.
-        correct_bin = next(
-            bin_object
-            for bin_object in self.bins
-            if bin_object.category == item.category
-        )
 
+        # Localiza o índice da lixeira correta.
+        correct_lane = next(
+            index
+            for index, bin_object in enumerate(self.bins)
+            if bin_object.category == item.category
+)
+
+        correct_bin = self.bins[correct_lane]
         # ----------------------------------------------
         # ACERTO
         # ----------------------------------------------
 
         if item.category == target_bin.category:
+
+
+            self.highlighted_bins = {
+                landed_lane: self.GREEN
+}
 
             self.combo += 1
 
@@ -350,7 +366,18 @@ class EcoDropGame:
         # ERRO
         # ----------------------------------------------
 
+        
+
+           # ERRO
+
         else:
+
+            # Destaca em vermelho a lixeira escolhida.
+            # A lixeira correta ficará verde.
+            self.highlighted_bins = {
+                landed_lane: self.RED,
+                correct_lane: self.GREEN
+    }
 
             self.lives -= 1
 
@@ -358,8 +385,10 @@ class EcoDropGame:
 
             self.feedback_text = (
                 f"Incorreto! {item.name} vai em "
-                f"{correct_bin.label}."
-            )
+                 f"{correct_bin.label}."
+    )
+
+            
 
             self.feedback_color = self.RED
 
@@ -621,6 +650,30 @@ class EcoDropGame:
                 self.font_bin,
             )
 
+        # ----------------------------------------------
+# DESTAQUE VISUAL DAS LIXEIRAS
+# ----------------------------------------------
+         
+                 # ----------------------------------------------
+        # DESTAQUE VISUAL DAS LIXEIRAS
+        # ----------------------------------------------
+
+        for lane_index, highlight_color in self.highlighted_bins.items():
+
+            # Obtém o retângulo da lixeira correspondente.
+            bin_rect = self.bins[lane_index].rect
+
+            # Cria um contorno externo para destacar a lixeira.
+            highlight_rect = bin_rect.inflate(10, 10)
+
+            # Desenha o contorno colorido.
+            pygame.draw.rect(
+                self.screen,
+                highlight_color,
+                highlight_rect,
+                width=4,
+                border_radius=15,
+            )
         # ----------------------------------------------
         # RODAPÉ
         # ----------------------------------------------
