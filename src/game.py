@@ -4,6 +4,14 @@ import pygame
 from src.bin import Bin
 from src.item import WasteItem
 
+import random
+import pygame
+
+from src.audio import AudioManager
+from src.bin import Bin
+from src.item import WasteItem
+
+
 
 class EcoDropGame:
     """
@@ -45,6 +53,9 @@ class EcoDropGame:
         )
 
         self.clock = pygame.time.Clock()
+
+        # Gerenciador de efeitos sonoros.
+        self.audio = AudioManager()
 
         # Fontes.
         self.font_title = pygame.font.Font(None, 68)
@@ -140,13 +151,12 @@ class EcoDropGame:
         self.highlighted_bins = {}
 
     def _start_game(self) -> None:
-        """
-        Inicia uma nova partida.
-        """
 
         self._reset_round()
 
         self.state = self.PLAYING
+
+        self.audio.play_start()
 
         self._spawn_item()
 
@@ -361,7 +371,7 @@ class EcoDropGame:
             )
 
             self.feedback_color = self.GREEN
-
+            self.audio.play_correct()
         # ----------------------------------------------
         # ERRO
         # ----------------------------------------------
@@ -392,6 +402,9 @@ class EcoDropGame:
 
             self.feedback_color = self.RED
 
+            if self.lives > 0:
+                self.audio.play_error()
+
         # Mostra o feedback por alguns quadros.
         self.feedback_timer = 45
 
@@ -416,8 +429,12 @@ class EcoDropGame:
         self.spawn_timer = 0
 
         # Encerra a partida quando as vidas acabam.
+        
         if self.lives <= 0:
+
             self.state = self.GAME_OVER
+
+            self.audio.play_game_over()
 
     def _draw_text(
         self,
