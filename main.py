@@ -1,6 +1,7 @@
 import pygame
 
 from src.bin import Bin
+from src.item import WasteItem
 
 
 # ==================================================
@@ -11,7 +12,7 @@ pygame.init()
 
 
 # ==================================================
-# 2. CONFIGURAÇÕES DO JOGO
+# 2. CONFIGURAÇÕES
 # ==================================================
 
 LARGURA = 800
@@ -23,7 +24,7 @@ VERDE = (52, 211, 153)
 BRANCO = (245, 245, 245)
 CINZA = (150, 165, 180)
 
-# Cores de identificação das categorias.
+# Cores das categorias de reciclagem.
 AZUL_PAPEL = (49, 130, 206)
 VERMELHO_PLASTICO = (220, 66, 66)
 VERDE_VIDRO = (46, 160, 100)
@@ -35,7 +36,9 @@ MARROM_ORGANICOS = (133, 94, 66)
 # 3. CRIAÇÃO DA JANELA
 # ==================================================
 
-tela = pygame.display.set_mode((LARGURA, ALTURA))
+tela = pygame.display.set_mode(
+    (LARGURA, ALTURA)
+)
 
 pygame.display.set_caption(
     "EcoDrop | Son Games"
@@ -53,6 +56,10 @@ fonte_subtitulo = pygame.font.Font(None, 30)
 fonte_instrucao = pygame.font.Font(None, 25)
 fonte_categoria = pygame.font.Font(None, 25)
 fonte_rodape = pygame.font.Font(None, 20)
+
+fonte_item_nome = pygame.font.Font(None, 28)
+fonte_item_categoria = pygame.font.Font(None, 21)
+fonte_item_simbolo = pygame.font.Font(None, 23)
 
 
 # ==================================================
@@ -120,7 +127,21 @@ lixeiras = [
 
 
 # ==================================================
-# 6. LOOP PRINCIPAL
+# 6. CRIAÇÃO DE UM RESÍDUO DE EXEMPLO
+# ==================================================
+
+residuo_atual = WasteItem(
+    name="Jornal velho",
+    category="papel",
+    category_label="PAPEL",
+    x=285,
+    y=245,
+    color=AZUL_PAPEL
+)
+
+
+# ==================================================
+# 7. LOOP PRINCIPAL
 # ==================================================
 
 executando = True
@@ -137,7 +158,7 @@ while executando:
             executando = False
 
     # ----------------------------------------------
-    # DESENHO DO FUNDO
+    # FUNDO
     # ----------------------------------------------
 
     tela.fill(FUNDO)
@@ -155,7 +176,7 @@ while executando:
     tela.blit(
         titulo,
         titulo.get_rect(
-            center=(LARGURA // 2, 75)
+            center=(LARGURA // 2, 65)
         )
     )
 
@@ -172,7 +193,7 @@ while executando:
     tela.blit(
         subtitulo,
         subtitulo.get_rect(
-            center=(LARGURA // 2, 125)
+            center=(LARGURA // 2, 115)
         )
     )
 
@@ -181,7 +202,7 @@ while executando:
     # ----------------------------------------------
 
     instrucao = fonte_instrucao.render(
-        "Conheça as categorias de resíduos",
+        "Aprenda a separar os resíduos corretamente",
         True,
         CINZA
     )
@@ -189,12 +210,36 @@ while executando:
     tela.blit(
         instrucao,
         instrucao.get_rect(
-            center=(LARGURA // 2, 195)
+            center=(LARGURA // 2, 175)
         )
     )
 
     # ----------------------------------------------
-    # ÁREA DE SEPARAÇÃO
+    # RESÍDUO DE EXEMPLO
+    # ----------------------------------------------
+
+    titulo_residuo = fonte_categoria.render(
+        "EXEMPLO DE RESÍDUO",
+        True,
+        BRANCO
+    )
+
+    tela.blit(
+        titulo_residuo,
+        titulo_residuo.get_rect(
+            center=(LARGURA // 2, 220)
+        )
+    )
+
+    residuo_atual.draw(
+        tela,
+        fonte_item_nome,
+        fonte_item_categoria,
+        fonte_item_simbolo
+    )
+
+    # ----------------------------------------------
+    # LIXEIRAS
     # ----------------------------------------------
 
     for lixeira in lixeiras:
@@ -208,7 +253,7 @@ while executando:
     # ----------------------------------------------
 
     rodape = fonte_rodape.render(
-        "Desenvolvido por Arthur",
+        "Son Games | Projeto em desenvolvimento",
         True,
         CINZA
     )
@@ -226,12 +271,11 @@ while executando:
 
     pygame.display.flip()
 
-    # Mantém a execução próxima de 60 FPS.
     relogio.tick(FPS)
 
 
 # ==================================================
-# 7. ENCERRAMENTO
+# 8. ENCERRAMENTO
 # ==================================================
 
 pygame.quit()
