@@ -9,7 +9,7 @@ class EcoDropGame:
     """
     Controla o funcionamento principal do EcoDrop.
 
-    Estados:
+    Estados disponíveis:
     - MENU: menu principal.
     - PLAYING: partida em andamento.
     - GAME_OVER: fim da partida.
@@ -30,8 +30,12 @@ class EcoDropGame:
     RED = (235, 90, 90)
 
     def __init__(self) -> None:
+        """
+        Inicializa a janela, as fontes, as lixeiras
+        e as configurações principais do jogo.
+        """
 
-        # Janela e controle de atualização.
+        # Janela do jogo.
         self.screen = pygame.display.set_mode(
             (self.WIDTH, self.HEIGHT)
         )
@@ -57,16 +61,15 @@ class EcoDropGame:
             ("plastico", "PLÁSTICO", (220, 66, 66)),
             ("vidro", "VIDRO", (46, 160, 100)),
             ("metal", "METAL", (225, 170, 45)),
-            ("organico", "ORGÂNICOS", (133, 94, 66))
+            ("organico", "ORGÂNICOS", (133, 94, 66)),
         ]
 
-        # Criamos as cinco lixeiras.
+        # Criação das cinco lixeiras.
         self.bins = []
 
-        for index, data in enumerate(bin_data):
-
-            category, label, color = data
-
+        for index, (category, label, color) in enumerate(
+            bin_data
+        ):
             x = 28 + index * 152
 
             bin_object = Bin(
@@ -76,19 +79,19 @@ class EcoDropGame:
                 height=95,
                 category=category,
                 label=label,
-                color=color
+                color=color,
             )
 
             self.bins.append(bin_object)
 
-        # Cada resíduo será centralizado em uma dessas colunas.
+        # Centro horizontal de cada coluna.
         self.lane_centers = [
             bin_object.rect.centerx
             for bin_object in self.bins
         ]
 
-        # Resíduos que poderão aparecer durante a partida.
-        # O segundo elemento de cada tupla é a categoria interna.
+        # Resíduos disponíveis no jogo.
+        # A categoria fica armazenada internamente.
         self.waste_types = [
             ("Jornal", "papel"),
             ("Caixa de papelão", "papel"),
@@ -99,14 +102,14 @@ class EcoDropGame:
             ("Lata de alumínio", "metal"),
             ("Lata de conserva", "metal"),
             ("Casca de banana", "organico"),
-            ("Restos de frutas", "organico")
+            ("Restos de frutas", "organico"),
         ]
 
-        # Estado inicial: menu principal.
+        # Controle das telas.
         self.state = self.MENU
         self.running = True
 
-        # Inicializamos os dados da partida.
+        # Inicializa os dados da partida.
         self._reset_round()
 
     def _reset_round(self) -> None:
@@ -145,7 +148,7 @@ class EcoDropGame:
 
     def _spawn_item(self) -> None:
         """
-        Cria um novo resíduo em uma coluna inicial aleatória.
+        Cria um novo resíduo em uma coluna aleatória.
         """
 
         name, category = random.choice(
@@ -165,14 +168,14 @@ class EcoDropGame:
             category=category,
             x=lane_x,
             y=175,
-            fall_speed=self.fall_speed
+            fall_speed=self.fall_speed,
         )
 
         self.spawn_timer = 0
 
     def _move_lane(self, direction: int) -> None:
         """
-        Move o resíduo uma coluna para a esquerda ou direita.
+        Define a coluna de destino do resíduo.
 
         direction:
             -1 = esquerda
@@ -183,36 +186,39 @@ class EcoDropGame:
             0,
             min(
                 len(self.bins) - 1,
-                self.current_lane + direction
-            )
+                self.current_lane + direction,
+            ),
         )
 
-        # Não movimentamos além das extremidades.
+        # Impede que o jogador ultrapasse as extremidades.
         if new_lane == self.current_lane:
             return
 
         self.current_lane = new_lane
 
-        # Só há resíduo para movimentar durante uma queda.
+        # Solicita o movimento suave do resíduo.
         if self.current_item is not None:
-
             lane_x = self.lane_centers[
                 self.current_lane
             ]
 
-            self.current_item.move_to_x(lane_x)
+            self.current_item.move_to_x(
+                lane_x
+            )
 
     def _handle_events(self) -> None:
         """
-        Processa eventos do teclado e da janela.
+        Processa os eventos da janela e do teclado.
         """
 
         for event in pygame.event.get():
 
+            # Fechar a janela.
             if event.type == pygame.QUIT:
                 self.running = False
                 continue
 
+            # Só precisamos tratar os comandos de teclado.
             if event.type != pygame.KEYDOWN:
                 continue
 
@@ -224,7 +230,7 @@ class EcoDropGame:
 
                 if event.key in (
                     pygame.K_RETURN,
-                    pygame.K_SPACE
+                    pygame.K_SPACE,
                 ):
                     self._start_game()
 
@@ -252,7 +258,7 @@ class EcoDropGame:
 
                 if event.key in (
                     pygame.K_RETURN,
-                    pygame.K_r
+                    pygame.K_r,
                 ):
                     self._start_game()
 
@@ -264,15 +270,15 @@ class EcoDropGame:
         Atualiza a lógica da partida.
         """
 
-        # Não há movimentação no menu ou na tela final.
+        # O jogo só atualiza os resíduos durante a partida.
         if self.state != self.PLAYING:
             return
 
-        # Atualizamos a duração da mensagem de feedback.
+        # Atualiza a duração das mensagens.
         if self.feedback_timer > 0:
             self.feedback_timer -= 1
 
-        # Caso não exista resíduo, aguardamos para criar outro.
+        # Cria um novo resíduo quando necessário.
         if self.current_item is None:
 
             self.spawn_timer += 1
@@ -282,10 +288,10 @@ class EcoDropGame:
 
             return
 
-        # Faz o resíduo descer.
+        # Atualiza a posição vertical e horizontal.
         self.current_item.update()
 
-        # Verifica quando ele chega à região das lixeiras.
+        # Verifica se o resíduo alcançou a região das lixeiras.
         if (
             self.current_item.rect.bottom
             >= self.bins[0].rect.top
@@ -301,18 +307,32 @@ class EcoDropGame:
             return
 
         item = self.current_item
-        target_bin = self.bins[self.current_lane]
 
-        # Encontramos a lixeira correta para dar feedback.
+        # Identifica a coluna mais próxima da posição real
+        # do resíduo durante o movimento suave.
+        landed_lane = min(
+            range(len(self.lane_centers)),
+            key=lambda index: abs(
+                item.x - self.lane_centers[index]
+            ),
+        )
+
+        target_bin = self.bins[landed_lane]
+
+        # Localiza a lixeira que corresponde à categoria
+        # correta do resíduo.
         correct_bin = next(
             bin_object
             for bin_object in self.bins
             if bin_object.category == item.category
         )
 
+        # ----------------------------------------------
+        # ACERTO
+        # ----------------------------------------------
+
         if item.category == target_bin.category:
 
-            # Acerto: o combo aumenta a recompensa.
             self.combo += 1
 
             points = 100 * self.combo
@@ -326,10 +346,14 @@ class EcoDropGame:
 
             self.feedback_color = self.GREEN
 
+        # ----------------------------------------------
+        # ERRO
+        # ----------------------------------------------
+
         else:
 
-            # Erro: perde uma vida e reinicia o combo.
             self.lives -= 1
+
             self.combo = 0
 
             self.feedback_text = (
@@ -339,24 +363,30 @@ class EcoDropGame:
 
             self.feedback_color = self.RED
 
+        # Mostra o feedback por alguns quadros.
         self.feedback_timer = 45
 
-        # Registramos a resolução do resíduo.
+        # Registra a resolução do resíduo.
         self.items_processed += 1
 
-        # A velocidade aumenta a cada cinco resíduos.
-        self.level = self.items_processed // 5 + 1
+        # A cada cinco resíduos, aumenta o nível.
+        self.level = (
+            self.items_processed // 5
+        ) + 1
 
+        # A velocidade cresce progressivamente,
+        # respeitando o limite máximo definido.
         self.fall_speed = min(
             5.0,
-            2.8 + 0.25 * (self.level - 1)
+            2.8 + 0.25 * (self.level - 1),
         )
 
-        # O resíduo resolvido deixa de ser desenhado.
+        # Remove o resíduo atual.
         self.current_item = None
+
         self.spawn_timer = 0
 
-        # Fim de jogo quando as três vidas acabam.
+        # Encerra a partida quando as vidas acabam.
         if self.lives <= 0:
             self.state = self.GAME_OVER
 
@@ -366,76 +396,84 @@ class EcoDropGame:
         font: pygame.font.Font,
         color: tuple[int, int, int],
         center: tuple[int, int] | None = None,
-        topleft: tuple[int, int] | None = None
+        topleft: tuple[int, int] | None = None,
     ) -> None:
         """
-        Desenha textos centralizados ou em uma posição específica.
+        Desenha um texto na tela.
+
+        Pode centralizar o texto ou posicioná-lo
+        pelo canto superior esquerdo.
         """
 
-        surface = font.render(
+        text_surface = font.render(
             text,
             True,
-            color
+            color,
         )
 
         if center is not None:
 
-            rect = surface.get_rect(
+            rect = text_surface.get_rect(
                 center=center
             )
 
         elif topleft is not None:
 
-            rect = surface.get_rect(
+            rect = text_surface.get_rect(
                 topleft=topleft
             )
 
         else:
-            rect = surface.get_rect()
+            rect = text_surface.get_rect()
 
-        self.screen.blit(surface, rect)
+        self.screen.blit(
+            text_surface,
+            rect,
+        )
 
     def _draw_menu(self) -> None:
         """
         Desenha o menu principal.
         """
 
-        self.screen.fill(self.BACKGROUND)
+        self.screen.fill(
+            self.BACKGROUND
+        )
 
         self._draw_text(
             "EcoDrop",
             self.font_title,
             self.GREEN,
-            center=(400, 135)
+            center=(400, 135),
         )
 
         self._draw_text(
             "Tetris da Reciclagem",
             self.font_subtitle,
             self.WHITE,
-            center=(400, 195)
+            center=(400, 195),
         )
 
         self._draw_text(
             "Separe os resíduos e ajude o meio ambiente!",
             self.font_normal,
             self.GRAY,
-            center=(400, 255)
+            center=(400, 255),
         )
 
-        # Botão visual para iniciar a partida.
+        # Botão visual.
         button = pygame.Rect(
             285,
             315,
             230,
-            62
+            62,
         )
 
         pygame.draw.rect(
             self.screen,
             (25, 65, 65),
             button,
-            border_radius=12
+            border_radius=12,
         )
 
         pygame.draw.rect(
@@ -443,35 +481,35 @@ class EcoDropGame:
             self.GREEN,
             button,
             width=2,
-            border_radius=12
+            border_radius=12,
         )
 
         self._draw_text(
             "JOGAR",
             self.font_button,
             self.WHITE,
-            center=button.center
+            center=button.center,
         )
 
         self._draw_text(
             "Pressione ENTER ou ESPAÇO",
             self.font_normal,
             self.GRAY,
-            center=(400, 415)
+            center=(400, 415),
         )
 
         self._draw_text(
             "Use as setas durante a partida para escolher a lixeira.",
             self.font_small,
             self.GRAY,
-            center=(400, 465)
+            center=(400, 465),
         )
 
         self._draw_text(
             "Son Games | Projeto em desenvolvimento",
             self.font_small,
             self.GRAY,
-            center=(400, 570)
+            center=(400, 570),
         )
 
     def _draw_game(self) -> None:
@@ -479,7 +517,9 @@ class EcoDropGame:
         Desenha a tela da partida.
         """
 
-        self.screen.fill(self.BACKGROUND)
+        self.screen.fill(
+            self.BACKGROUND
+        )
 
         # ----------------------------------------------
         # PAINEL DE INFORMAÇÕES
@@ -489,35 +529,35 @@ class EcoDropGame:
             "EcoDrop",
             self.font_normal,
             self.GREEN,
-            topleft=(24, 22)
+            topleft=(24, 22),
         )
 
         self._draw_text(
             f"Pontos: {self.score}",
             self.font_small,
             self.WHITE,
-            topleft=(190, 26)
+            topleft=(190, 26),
         )
 
         self._draw_text(
             f"Vidas: {self.lives}",
             self.font_small,
             self.WHITE,
-            topleft=(355, 26)
+            topleft=(355, 26),
         )
 
         self._draw_text(
             f"Combo: x{self.combo}",
             self.font_small,
             self.WHITE,
-            topleft=(480, 26)
+            topleft=(480, 26),
         )
 
         self._draw_text(
             f"Nível: {self.level}",
             self.font_small,
             self.WHITE,
-            topleft=(650, 26)
+            topleft=(650, 26),
         )
 
         pygame.draw.line(
@@ -525,14 +565,14 @@ class EcoDropGame:
             (40, 57, 72),
             (24, 62),
             (776, 62),
-            1
+            1,
         )
 
         self._draw_text(
-            "Use <- e -> para colocar o resíduo na lixeira correta",
+            "Use as setas para colocar o resíduo na lixeira correta",
             self.font_normal,
             self.GRAY,
-            center=(400, 88)
+            center=(400, 88),
         )
 
         # Mensagem de acerto ou erro.
@@ -542,7 +582,7 @@ class EcoDropGame:
                 self.feedback_text,
                 self.font_small,
                 self.feedback_color,
-                center=(400, 124)
+                center=(400, 124),
             )
 
         # ----------------------------------------------
@@ -556,18 +596,18 @@ class EcoDropGame:
                 (25, 40, 54),
                 (lane_x, 145),
                 (lane_x, 455),
-                2
+                2,
             )
 
         # ----------------------------------------------
-        # RESÍDUO
+        # RESÍDUO ATUAL
         # ----------------------------------------------
 
         if self.current_item is not None:
 
             self.current_item.draw(
                 self.screen,
-                self.font_item
+                self.font_item,
             )
 
         # ----------------------------------------------
@@ -578,7 +618,7 @@ class EcoDropGame:
 
             bin_object.draw(
                 self.screen,
-                self.font_bin
+                self.font_bin,
             )
 
         # ----------------------------------------------
@@ -589,7 +629,7 @@ class EcoDropGame:
             "ESC: voltar ao menu",
             self.font_small,
             self.GRAY,
-            center=(400, 583)
+            center=(400, 583),
         )
 
     def _draw_game_over(self) -> None:
@@ -597,20 +637,22 @@ class EcoDropGame:
         Desenha a tela de fim de jogo.
         """
 
-        self.screen.fill(self.BACKGROUND)
+        self.screen.fill(
+            self.BACKGROUND
+        )
 
         panel = pygame.Rect(
             100,
             125,
             600,
-            350
+            350,
         )
 
         pygame.draw.rect(
             self.screen,
             (20, 36, 52),
             panel,
-            border_radius=18
+            border_radius=18,
         )
 
         pygame.draw.rect(
@@ -618,49 +660,49 @@ class EcoDropGame:
             self.GREEN,
             panel,
             width=2,
-            border_radius=18
+            border_radius=18,
         )
 
         self._draw_text(
             "FIM DE JOGO",
             self.font_title,
             self.GREEN,
-            center=(400, 195)
+            center=(400, 195),
         )
 
         self._draw_text(
             f"Pontuação final: {self.score}",
             self.font_subtitle,
             self.WHITE,
-            center=(400, 270)
+            center=(400, 270),
         )
 
         self._draw_text(
             f"Resíduos classificados: {self.items_processed}",
             self.font_normal,
             self.GRAY,
-            center=(400, 320)
+            center=(400, 320),
         )
 
         self._draw_text(
             "Pressione ENTER ou R para jogar novamente",
             self.font_normal,
             self.WHITE,
-            center=(400, 380)
+            center=(400, 380),
         )
 
         self._draw_text(
             "Pressione ESC para voltar ao menu",
             self.font_small,
             self.GRAY,
-            center=(400, 425)
+            center=(400, 425),
         )
 
         self._draw_text(
             "Son Games",
             self.font_small,
             self.GRAY,
-            center=(400, 560)
+            center=(400, 560),
         )
 
     def _draw(self) -> None:
@@ -669,12 +711,15 @@ class EcoDropGame:
         """
 
         if self.state == self.MENU:
+
             self._draw_menu()
 
         elif self.state == self.PLAYING:
+
             self._draw_game()
 
         elif self.state == self.GAME_OVER:
+
             self._draw_game_over()
 
         pygame.display.flip()
@@ -692,4 +737,6 @@ class EcoDropGame:
 
             self._draw()
 
-            self.clock.tick(self.FPS)
+            self.clock.tick(
+                self.FPS
+            )
