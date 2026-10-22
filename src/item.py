@@ -3,154 +3,128 @@ import pygame
 
 class WasteItem:
     """
-    Representa um resíduo que poderá ser reciclado no EcoDrop.
+    Representa um resíduo que aparece durante a partida.
 
-    Cada resíduo possui:
-    - Nome.
-    - Categoria de reciclagem.
-    - Nome da categoria para exibição.
-    - Posição na tela.
-    - Dimensões.
-    - Cor de identificação.
+    A categoria fica armazenada internamente para que
+    o jogo possa verificar se o jogador acertou a lixeira.
+
+    O desenho do objeto não revela sua categoria.
     """
 
     def __init__(
         self,
         name: str,
         category: str,
-        category_label: str,
         x: int,
         y: int,
-        color: tuple[int, int, int],
-        width: int = 230,
-        height: int = 100
+        fall_speed: float = 2.8,
+        width: int = 132,
+        height: int = 54
     ) -> None:
 
-        # Nome do resíduo.
         self.name = name
-
-        # Identificador interno da categoria.
-        # Será utilizado posteriormente na classificação.
         self.category = category
 
-        # Nome da categoria apresentado ao jogador.
-        self.category_label = category_label
+        # Guardamos as posições como números decimais.
+        # Isso permite adicionar movimentos suaves futuramente.
+        self.x = float(x)
+        self.y = float(y)
 
-        # Posição e dimensões do resíduo.
+        self.speed = float(fall_speed)
+
+        # Área ocupada pelo resíduo na tela.
         self.rect = pygame.Rect(
-            x,
-            y,
+            0,
+            0,
             width,
             height
         )
 
-        # Cor visual do resíduo.
-        self.color = color
+        self._sync_rect()
+
+    def _sync_rect(self) -> None:
+        """
+        Sincroniza o retângulo visual com a posição do objeto.
+        """
+
+        self.rect.center = (
+            round(self.x),
+            round(self.y)
+        )
+
+    def move_to_x(self, x: int) -> None:
+        """
+        Posiciona o resíduo no centro da coluna selecionada.
+        """
+
+        self.x = float(x)
+        self._sync_rect()
+
+    def update(self) -> None:
+        """
+        Atualiza a posição vertical do resíduo.
+
+        O objeto desce a cada atualização do jogo.
+        """
+
+        self.y += self.speed
+        self._sync_rect()
 
     def draw(
         self,
         surface: pygame.Surface,
-        name_font: pygame.font.Font,
-        category_font: pygame.font.Font,
-        symbol_font: pygame.font.Font
+        font: pygame.font.Font
     ) -> None:
         """
-        Desenha a representação visual do resíduo.
-
-        Args:
-            surface: superfície onde o objeto será desenhado.
-            name_font: fonte utilizada no nome do resíduo.
-            category_font: fonte utilizada na categoria.
-            symbol_font: fonte utilizada na identificação visual.
+        Desenha o resíduo sem revelar sua categoria.
         """
 
-        # Sombra para destacar o objeto do fundo.
-        shadow_rect = self.rect.move(0, 5)
+        # Sombra.
+        shadow_rect = self.rect.move(0, 4)
 
         pygame.draw.rect(
             surface,
             (5, 12, 22),
             shadow_rect,
-            border_radius=14
+            border_radius=12
         )
 
-        # Fundo do cartão do resíduo.
+        # Cartão do resíduo.
         pygame.draw.rect(
             surface,
-            (25, 44, 62),
+            (31, 48, 63),
             self.rect,
-            border_radius=14
+            border_radius=12
         )
 
-        # Contorno colorido da categoria.
+        # Contorno neutro, igual para todas as categorias.
         pygame.draw.rect(
             surface,
-            self.color,
+            (110, 135, 150),
             self.rect,
             width=2,
-            border_radius=14
-        )
-
-        # Círculo que identifica visualmente a categoria.
-        centro_circulo = (
-            self.rect.x + 43,
-            self.rect.centery
-        )
-
-        pygame.draw.circle(
-            surface,
-            self.color,
-            centro_circulo,
-            25
-        )
-
-        # Abreviação da categoria.
-        abreviacoes = {
-            "papel": "PA",
-            "plastico": "PL",
-            "vidro": "VI",
-            "metal": "ME",
-            "organico": "OR"
-        }
-
-        simbolo = abreviacoes.get(
-            self.category,
-            "?"
-        )
-
-        texto_simbolo = symbol_font.render(
-            simbolo,
-            True,
-            (255, 255, 255)
-        )
-
-        surface.blit(
-            texto_simbolo,
-            texto_simbolo.get_rect(
-                center=centro_circulo
-            )
+            border_radius=12
         )
 
         # Nome do resíduo.
-        texto_nome = name_font.render(
+        texto = font.render(
             self.name,
             True,
             (245, 245, 245)
         )
 
-        surface.blit(
-            texto_nome,
-            (self.rect.x + 82, self.rect.y + 29)
+        # Reduzimos a fonte caso um nome seja muito comprido.
+        if texto.get_width() > self.rect.width - 12:
+            fonte_menor = pygame.font.Font(None, 20)
+
+            texto = fonte_menor.render(
+                self.name,
+                True,
+                (245, 245, 245)
+            )
+
+        texto_rect = texto.get_rect(
+            center=self.rect.center
         )
 
-        # Categoria do resíduo.
-        texto_categoria = category_font.render(
-            self.category_label,
-            True,
-            self.color
-        )
-
-        surface.blit(
-            texto_categoria,
-            (self.rect.x + 82, self.rect.y + 57)
-        )
+        surface.blit(texto, texto_rect)
