@@ -156,6 +156,9 @@ class EcoDropGame:
         self.current_item = None
         self.current_lane = 2
 
+        # Resíduo que está executando a animação de saída.
+        self.transition_item = None
+
         self.spawn_timer = 0
 
         # Feedback de acertos e erros.
@@ -342,6 +345,18 @@ class EcoDropGame:
             if not effect.finished
         ]
 
+       # ATUALIZAR A ANIMAÇÃO DE SAÍDA DO RESÍDUO
+
+        transition_item = self.transition_item
+
+        if transition_item is not None:
+
+            # Atualiza a animação do resíduo que está saindo.
+            transition_item.update()
+
+            # Remove a referência quando a animação terminar.
+            if transition_item.finished:
+                self.transition_item = None
         # --------------------------------------------------
         # ATUALIZAR FEEDBACK VISUAL
         # --------------------------------------------------
@@ -522,7 +537,14 @@ class EcoDropGame:
             2.8 + 0.25 * (self.level - 1),
         )
 
-        # Remove o resíduo resolvido.
+       # Inicia a animação de desaparecimento.
+        
+        item.start_exit()
+
+        # Mantém uma referência ao resíduo até a animação terminar.
+        self.transition_item = item
+
+        # Libera a posição para o próximo resíduo.
         self.current_item = None
 
         self.spawn_timer = 0
@@ -775,6 +797,14 @@ class EcoDropGame:
                 self.font_item,
             )
 
+        # RESÍDUO EM TRANSIÇÃO DE SAÍDA
+
+        if self.transition_item is not None:
+
+            self.transition_item.draw(
+                self.screen,
+                self.font_item,
+            )
         # --------------------------------------------------
         # LIXEIRAS
         # --------------------------------------------------
