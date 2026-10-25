@@ -37,9 +37,9 @@ class EcoDropGame:
         as lixeiras e as configurações principais.
         """
 
-        # --------------------------------------------------
+        # ==================================================
         # JANELA E RELÓGIO
-        # --------------------------------------------------
+        # ==================================================
 
         self.screen = pygame.display.set_mode(
             (self.WIDTH, self.HEIGHT)
@@ -50,6 +50,10 @@ class EcoDropGame:
         )
 
         self.clock = pygame.time.Clock()
+
+        # Cria o cenário uma única vez.
+        # Depois, ele será reutilizado durante a partida.
+        self.background_surface = self._create_background()
 
         # --------------------------------------------------
         # ÁUDIO
@@ -107,6 +111,19 @@ class EcoDropGame:
             for bin_object in self.bins
         ]
 
+        # Superfície translúcida para destacar a coluna selecionada.
+        self.lane_glow_surface = pygame.Surface(
+            (108, 310),
+            pygame.SRCALPHA,
+        )
+
+        pygame.draw.rect(
+            self.lane_glow_surface,
+            (52, 211, 153, 24),
+            self.lane_glow_surface.get_rect(),
+            border_radius=18,
+        )
+
         # --------------------------------------------------
         # RESÍDUOS DISPONÍVEIS
         # --------------------------------------------------
@@ -138,6 +155,229 @@ class EcoDropGame:
     # ======================================================
     # CONTROLE DA PARTIDA
     # ======================================================
+
+
+        # ==================================================
+    # CRIAÇÃO DO CENÁRIO
+    # ==================================================
+
+    def _create_background(self) -> pygame.Surface:
+        """
+        Cria um cenário com degradê, detalhes ambientais
+        e uma área de chão.
+
+        O fundo é criado apenas uma vez para evitar
+        redesenhar o degradê a cada quadro do jogo.
+        """
+
+        background = pygame.Surface(
+            (self.WIDTH, self.HEIGHT)
+        )
+
+        # ----------------------------------------------
+        # 1. DEGRADÊ VERTICAL
+        # ----------------------------------------------
+
+        cor_superior = (9, 18, 34)
+        cor_inferior = (16, 45, 49)
+
+        for y in range(self.HEIGHT):
+
+            progresso = y / max(
+                1,
+                self.HEIGHT - 1,
+            )
+
+            cor_atual = tuple(
+                int(
+                    cor_superior[index]
+                    + (
+                        cor_inferior[index]
+                        - cor_superior[index]
+                    ) * progresso
+                )
+                for index in range(3)
+            )
+
+            pygame.draw.line(
+                background,
+                cor_atual,
+                (0, y),
+                (self.WIDTH, y),
+            )
+
+        # ----------------------------------------------
+        # 2. PONTOS DECORATIVOS
+        # ----------------------------------------------
+
+        # Coordenadas determinísticas para manter
+        # o cenário estável entre os quadros.
+        for index in range(34):
+
+            x = (index * 73 + 41) % self.WIDTH
+
+            y = (index * 47 + 71) % 425
+
+            raio = 1 + (index % 2)
+
+            pygame.draw.circle(
+                background,
+                (29, 65, 73),
+                (x, y),
+                raio,
+            )
+
+        # ----------------------------------------------
+        # 3. CÍRCULOS DECORATIVOS AO FUNDO
+        # ----------------------------------------------
+
+        pygame.draw.circle(
+            background,
+            (15, 48, 54),
+            (110, 305),
+            72,
+            width=2,
+        )
+
+        pygame.draw.circle(
+            background,
+            (17, 52, 56),
+            (700, 280),
+            94,
+            width=2,
+        )
+
+        pygame.draw.circle(
+            background,
+            (20, 57, 58),
+            (700, 280),
+            75,
+            width=1,
+        )
+
+        # ----------------------------------------------
+        # 4. CHÃO
+        # ----------------------------------------------
+
+        pygame.draw.rect(
+            background,
+            (10, 29, 38),
+            pygame.Rect(
+                0,
+                448,
+                self.WIDTH,
+                self.HEIGHT - 448,
+            ),
+        )
+
+        # Linha de horizonte.
+        pygame.draw.line(
+            background,
+            (33, 83, 72),
+            (0, 448),
+            (self.WIDTH, 448),
+            2,
+        )
+
+        pygame.draw.line(
+            background,
+            (19, 51, 53),
+            (0, 454),
+            (self.WIDTH, 454),
+            1,
+        )
+
+        # ----------------------------------------------
+        # 5. VEGETAÇÃO DECORATIVA À ESQUERDA
+        # ----------------------------------------------
+
+        pygame.draw.line(
+            background,
+            (28, 79, 60),
+            (12, 570),
+            (47, 472),
+            4,
+        )
+
+        pygame.draw.ellipse(
+            background,
+            (28, 91, 63),
+            pygame.Rect(
+                17,
+                490,
+                26,
+                13,
+            ),
+        )
+
+        pygame.draw.ellipse(
+            background,
+            (35, 104, 69),
+            pygame.Rect(
+                31,
+                472,
+                25,
+                13,
+            ),
+        )
+
+        pygame.draw.ellipse(
+            background,
+            (30, 85, 61),
+            pygame.Rect(
+                5,
+                525,
+                25,
+                13,
+            ),
+        )
+
+        # ----------------------------------------------
+        # 6. VEGETAÇÃO DECORATIVA À DIREITA
+        # ----------------------------------------------
+
+        pygame.draw.line(
+            background,
+            (28, 79, 60),
+            (788, 570),
+            (753, 472),
+            4,
+        )
+
+        pygame.draw.ellipse(
+            background,
+            (28, 91, 63),
+            pygame.Rect(
+                758,
+                490,
+                26,
+                13,
+            ),
+        )
+
+        pygame.draw.ellipse(
+            background,
+            (35, 104, 69),
+            pygame.Rect(
+                744,
+                472,
+                25,
+                13,
+            ),
+        )
+
+        pygame.draw.ellipse(
+            background,
+            (30, 85, 61),
+            pygame.Rect(
+                770,
+                525,
+                25,
+                13,
+            ),
+        )
+
+        return background
 
     def _reset_round(self) -> None:
         """
@@ -612,9 +852,10 @@ class EcoDropGame:
         Desenha o menu principal.
         """
 
-        self.screen.fill(
-            self.BACKGROUND
-        )
+        self.screen.blit(
+            self.background_surface,
+            (0, 0),
+)
 
         self._draw_text(
             "EcoDrop",
@@ -697,10 +938,10 @@ class EcoDropGame:
         Desenha a interface e os objetos da partida.
         """
 
-        self.screen.fill(
-            self.BACKGROUND
-        )
-
+        self.screen.blit(
+            self.background_surface,
+            (0, 0),
+    )
         # --------------------------------------------------
         # PAINEL DE INFORMAÇÕES
         # --------------------------------------------------
@@ -771,6 +1012,22 @@ class EcoDropGame:
                 self.feedback_color,
                 center=(400, 124),
             )
+
+                # ----------------------------------------------
+        # DESTAQUE DA COLUNA SELECIONADA
+        # ----------------------------------------------
+
+        lane_x = self.lane_centers[
+            self.current_lane
+        ]
+
+        self.screen.blit(
+            self.lane_glow_surface,
+            (
+                lane_x - self.lane_glow_surface.get_width() // 2,
+                145,
+            ),
+        )
 
         # --------------------------------------------------
         # COLUNAS
@@ -860,9 +1117,9 @@ class EcoDropGame:
         """
         Desenha a tela de fim de jogo.
         """
-
-        self.screen.fill(
-            self.BACKGROUND
+        self.screen.blit(
+            self.background_surface,
+            (0, 0),
         )
 
         panel = pygame.Rect(
