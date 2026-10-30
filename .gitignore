@@ -18,3 +18,7 @@ htmlcov/
 # Arquivos do sistema
 Thumbs.db
 .DS_Store
+
+# Dados locais das partidas
+data/record.json
+data/record.tmp

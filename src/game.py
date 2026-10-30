@@ -6,8 +6,8 @@ from src.bin import Bin
 from src.effects import ParticleBurst
 from src.education import get_education_tip
 from src.item import WasteItem
+from src.modes import GAME_MODES, MODE_ELECTRONIC, MODE_GENERAL
 from src.records import RecordManager
-
 
 class EcoDropGame:
     """
@@ -25,6 +25,8 @@ class EcoDropGame:
     # ==================================================
 
     MENU = "menu"
+    MODE_SELECT = "mode_select"
+    EWASTE_PREVIEW = "ewaste_preview"
     INSTRUCTIONS = "instructions"
     PLAYING = "playing"
     GAME_OVER = "game_over"
@@ -105,9 +107,40 @@ class EcoDropGame:
             285, 375, 230, 52
         )
 
-        # --------------------------------------------------
-        # LIXEIRAS
-        # --------------------------------------------------
+        # ==============================================
+        # BOTÕES DA SELEÇÃO DE MODOS
+        # ==============================================
+
+        # Cartão do modo Reciclagem Geral.
+        self.general_mode_rect = pygame.Rect(
+            55,
+            195,
+            330,
+            230,
+        )
+
+        # Cartão do modo Lixo Eletrônico.
+        self.electronic_mode_rect = pygame.Rect(
+            415,
+            195,
+            330,
+            230,
+        )
+
+        # Botão para retornar à tela anterior.
+        self.mode_back_button_rect = pygame.Rect(
+            300,
+            455,
+            200,
+            48,
+        )
+
+        # Modo selecionado inicialmente.
+        self.selected_mode = MODE_GENERAL
+
+            # --------------------------------------------------
+            # LIXEIRAS
+            # --------------------------------------------------
 
         bin_data = [
             ("papel", "PAPEL", (49, 130, 206)),
@@ -383,15 +416,35 @@ class EcoDropGame:
     # INICIAR PARTIDA
     # ==================================================
 
-    def _start_game(self) -> None:
-        """Inicia uma nova partida."""
+    def _start_game(self, mode: str = MODE_GENERAL) -> None:
+        """
+        Inicia uma partida do modo selecionado.
 
+        Nesta etapa, somente o modo Reciclagem Geral
+        está implementado como partida jogável.
+        """
+
+        # O modo eletrônico ainda está sendo desenvolvido.
+        # Se for selecionado, mostramos sua tela de apresentação.
+        if mode == MODE_ELECTRONIC:
+
+            self.selected_mode = MODE_ELECTRONIC
+            self.state = self.EWASTE_PREVIEW
+
+            return
+
+        # A partida atual continua sendo a Reciclagem Geral.
+        self.selected_mode = MODE_GENERAL
+
+        # Reinicializa os dados da partida.
         self._reset_round()
 
         self.state = self.PLAYING
 
+        # Reproduz o som de início.
         self.audio.play_start()
 
+        # Cria o primeiro resíduo.
         self._spawn_item()
 
     # ==================================================
@@ -464,65 +517,175 @@ class EcoDropGame:
     # ==================================================
 
     def _handle_events(self) -> None:
-        """Processa eventos da janela e dos controles."""
+        """
+        Processa os eventos da janela, do teclado e do mouse.
+        """
 
         for event in pygame.event.get():
 
-            # Fechar a janela.
+            # ==============================================
+            # FECHAR A JANELA
+            # ==============================================
+
             if event.type == pygame.QUIT:
+
                 self.running = False
+
                 continue
 
-            # ------------------------------------------
+            # ==============================================
             # CLIQUES DO MOUSE
-            # ------------------------------------------
+            # ==============================================
 
             if event.type == pygame.MOUSEBUTTONDOWN:
 
-                if (
-                    event.button == 1
-                    and self.state == self.MENU
-                ):
+                # Considera apenas o botão esquerdo.
+                if event.button == 1:
 
-                    # Botão Jogar.
-                    if self.play_button_rect.collidepoint(
-                        event.pos
-                    ):
-                        self._start_game()
+                    # --------------------------------------
+                    # MENU PRINCIPAL
+                    # --------------------------------------
 
-                    # Botão Instruções.
-                    elif self.instructions_button_rect.collidepoint(
-                        event.pos
-                    ):
-                        self.state = self.INSTRUCTIONS
+                    if self.state == self.MENU:
 
+                        # Jogar abre a seleção de modos.
+                        if self.play_button_rect.collidepoint(
+                            event.pos
+                        ):
+
+                            self.state = self.MODE_SELECT
+
+                        # Instruções continua funcionando.
+                        elif self.instructions_button_rect.collidepoint(
+                            event.pos
+                        ):
+
+                            self.state = self.INSTRUCTIONS
+
+                    # --------------------------------------
+                    # SELEÇÃO DE MODOS
+                    # --------------------------------------
+
+                    elif self.state == self.MODE_SELECT:
+
+                        # Iniciar Reciclagem Geral.
+                        if self.general_mode_rect.collidepoint(
+                            event.pos
+                        ):
+
+                            self._start_game(
+                                MODE_GENERAL
+                            )
+
+                        # Abrir apresentação do modo eletrônico.
+                        elif self.electronic_mode_rect.collidepoint(
+                            event.pos
+                        ):
+
+                            self._start_game(
+                                MODE_ELECTRONIC
+                            )
+
+                        # Voltar ao menu.
+                        elif self.mode_back_button_rect.collidepoint(
+                            event.pos
+                        ):
+
+                            self.state = self.MENU
+
+                    # --------------------------------------
+                    # APRESENTAÇÃO DO MODO ELETRÔNICO
+                    # --------------------------------------
+
+                    elif self.state == self.EWASTE_PREVIEW:
+
+                        if self.mode_back_button_rect.collidepoint(
+                            event.pos
+                        ):
+
+                            self.state = self.MODE_SELECT
+
+                # O clique já foi processado.
                 continue
+
+            # ==============================================
+            # EVENTOS DO TECLADO
+            # ==============================================
 
             if event.type != pygame.KEYDOWN:
                 continue
 
-            # ------------------------------------------
-            # MENU
-            # ------------------------------------------
+            # ----------------------------------------------
+            # MENU PRINCIPAL
+            # ----------------------------------------------
 
             if self.state == self.MENU:
 
+                # Enter ou Espaço abre a seleção de modos.
                 if event.key in (
                     pygame.K_RETURN,
                     pygame.K_SPACE,
                 ):
-                    self._start_game()
+
+                    self.state = self.MODE_SELECT
 
                 elif event.key in (
                     pygame.K_i,
                     pygame.K_h,
                     pygame.K_F1,
                 ):
+
                     self.state = self.INSTRUCTIONS
 
-            # ------------------------------------------
+            # ----------------------------------------------
+            # SELEÇÃO DE MODOS
+            # ----------------------------------------------
+
+            elif self.state == self.MODE_SELECT:
+
+                # Tecla 1 inicia Reciclagem Geral.
+                if event.key in (
+                    pygame.K_1,
+                    pygame.K_KP1,
+                ):
+
+                    self._start_game(
+                        MODE_GENERAL
+                    )
+
+                # Tecla 2 abre o modo eletrônico.
+                elif event.key in (
+                    pygame.K_2,
+                    pygame.K_KP2,
+                ):
+
+                    self._start_game(
+                        MODE_ELECTRONIC
+                    )
+
+                # Voltar ao menu.
+                elif event.key == pygame.K_ESCAPE:
+
+                    self.state = self.MENU
+
+            # ----------------------------------------------
+            # APRESENTAÇÃO DO MODO ELETRÔNICO
+            # ----------------------------------------------
+
+            elif self.state == self.EWASTE_PREVIEW:
+
+                # Retornar à seleção dos modos.
+                if event.key in (
+                    pygame.K_RETURN,
+                    pygame.K_SPACE,
+                    pygame.K_ESCAPE,
+                ):
+
+                    self.state = self.MODE_SELECT
+
+            # ----------------------------------------------
             # INSTRUÇÕES
-            # ------------------------------------------
+            # ----------------------------------------------
 
             elif self.state == self.INSTRUCTIONS:
 
@@ -531,14 +694,16 @@ class EcoDropGame:
                     pygame.K_SPACE,
                     pygame.K_ESCAPE,
                 ):
+
                     self.state = self.MENU
 
-            # ------------------------------------------
+            # ----------------------------------------------
             # PARTIDA
-            # ------------------------------------------
+            # ----------------------------------------------
 
             elif self.state == self.PLAYING:
 
+                # Voltar ao menu.
                 if event.key == pygame.K_ESCAPE:
 
                     self.state = self.MENU
@@ -549,26 +714,33 @@ class EcoDropGame:
                     self.highlighted_bins.clear()
                     self.effects.clear()
 
+                # Mover à esquerda.
                 elif event.key == pygame.K_LEFT:
 
                     self._move_lane(-1)
 
+                # Mover à direita.
                 elif event.key == pygame.K_RIGHT:
 
                     self._move_lane(1)
 
-            # ------------------------------------------
+            # ----------------------------------------------
             # FIM DE JOGO
-            # ------------------------------------------
+            # ----------------------------------------------
 
             elif self.state == self.GAME_OVER:
 
+                # Reiniciar o modo jogável.
                 if event.key in (
                     pygame.K_RETURN,
                     pygame.K_r,
                 ):
-                    self._start_game()
 
+                    self._start_game(
+                        self.selected_mode
+                    )
+
+                # Voltar ao menu.
                 elif event.key == pygame.K_ESCAPE:
 
                     self.state = self.MENU
@@ -579,9 +751,9 @@ class EcoDropGame:
                     self.highlighted_bins.clear()
                     self.effects.clear()
 
-    # ==================================================
-    # ATUALIZAR A LÓGICA E AS ANIMAÇÕES
-    # ==================================================
+        # ==================================================
+        # ATUALIZAR A LÓGICA E AS ANIMAÇÕES
+        # ==================================================
 
     def _update(self) -> None:
         """Atualiza as animações, o feedback e a partida."""
@@ -639,9 +811,9 @@ class EcoDropGame:
         ):
             self._resolve_item()
 
-    # ==================================================
-    # CLASSIFICAR RESÍDUOS
-    # ==================================================
+        # ==================================================
+        # CLASSIFICAR RESÍDUOS
+        # ==================================================
 
     def _resolve_item(self) -> None:
         """Classifica o resíduo e atualiza a partida."""
@@ -787,9 +959,9 @@ class EcoDropGame:
 
             self.audio.play_game_over()
 
-    # ==================================================
-    # DESENHAR TEXTOS
-    # ==================================================
+        # ==================================================
+        # DESENHAR TEXTOS
+        # ==================================================
 
     def _draw_text(
         self,
@@ -828,9 +1000,9 @@ class EcoDropGame:
             rect,
         )
 
-    # ==================================================
-    # BOTÕES DO MENU
-    # ==================================================
+        # ==================================================
+        # BOTÕES DO MENU
+        # ==================================================
 
     def _draw_menu_button(
         self,
@@ -871,9 +1043,9 @@ class EcoDropGame:
             center=rect.center,
         )
 
-    # ==================================================
-    # MENU PRINCIPAL
-    # ==================================================
+        # ==================================================
+        # MENU PRINCIPAL
+        # ==================================================
 
     def _draw_menu(self) -> None:
         """Desenha o menu principal interativo."""
@@ -954,9 +1126,318 @@ class EcoDropGame:
             center=(400, 570),
         )
 
+        # ==================================================
+    # SELEÇÃO DE MODOS
     # ==================================================
-    # TELA DE INSTRUÇÕES
+
+    def _draw_mode_select(self) -> None:
+        """
+        Desenha a tela de seleção dos modos do EcoDrop.
+        """
+
+        self.screen.blit(
+            self.background_surface,
+            (0, 0),
+        )
+
+        # ----------------------------------------------
+        # TÍTULO
+        # ----------------------------------------------
+
+        self._draw_text(
+            "ESCOLHA O MODO",
+            self.font_title,
+            self.GREEN,
+            center=(400, 85),
+        )
+
+        self._draw_text(
+            "Escolha a experiência que deseja jogar",
+            self.font_subtitle,
+            self.WHITE,
+            center=(400, 135),
+        )
+
+        mouse_position = pygame.mouse.get_pos()
+
+        # ----------------------------------------------
+        # CARTÃO: RECICLAGEM GERAL
+        # ----------------------------------------------
+
+        general_hovered = (
+            self.general_mode_rect.collidepoint(
+                mouse_position
+            )
+        )
+
+        general_background = (
+            (34, 69, 72)
+            if general_hovered
+            else (20, 39, 52)
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            general_background,
+            self.general_mode_rect,
+            border_radius=16,
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            self.GREEN,
+            self.general_mode_rect,
+            width=3,
+            border_radius=16,
+        )
+
+        self._draw_text(
+            GAME_MODES[MODE_GENERAL]["title"],
+            self.font_subtitle,
+            self.GREEN,
+            center=(220, 235),
+        )
+
+        self._draw_text(
+            GAME_MODES[MODE_GENERAL]["status"],
+            self.font_normal,
+            self.WHITE,
+            center=(220, 275),
+        )
+
+        for index, description in enumerate(
+            GAME_MODES[MODE_GENERAL]["description"]
+        ):
+
+            self._draw_text(
+                description,
+                self.font_small,
+                self.GRAY,
+                center=(220, 320 + index * 30),
+            )
+
+        # ----------------------------------------------
+        # CARTÃO: LIXO ELETRÔNICO
+        # ----------------------------------------------
+
+        electronic_hovered = (
+            self.electronic_mode_rect.collidepoint(
+                mouse_position
+            )
+        )
+
+        electronic_background = (
+            (43, 57, 79)
+            if electronic_hovered
+            else (20, 39, 52)
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            electronic_background,
+            self.electronic_mode_rect,
+            border_radius=16,
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (49, 130, 206),
+            self.electronic_mode_rect,
+            width=3,
+            border_radius=16,
+        )
+
+        self._draw_text(
+            GAME_MODES[MODE_ELECTRONIC]["title"],
+            self.font_subtitle,
+            (100, 180, 255),
+            center=(580, 235),
+        )
+
+        self._draw_text(
+            GAME_MODES[MODE_ELECTRONIC]["status"],
+            self.font_normal,
+            self.WHITE,
+            center=(580, 275),
+        )
+
+        for index, description in enumerate(
+            GAME_MODES[MODE_ELECTRONIC]["description"]
+        ):
+
+            self._draw_text(
+                description,
+                self.font_small,
+                self.GRAY,
+                center=(580, 320 + index * 30),
+            )
+
+        # ----------------------------------------------
+        # BOTÃO VOLTAR
+        # ----------------------------------------------
+
+        back_hovered = (
+            self.mode_back_button_rect.collidepoint(
+                mouse_position
+            )
+        )
+
+        back_background = (
+            (42, 58, 69)
+            if back_hovered
+            else (20, 39, 52)
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            back_background,
+            self.mode_back_button_rect,
+            border_radius=10,
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            self.GRAY,
+            self.mode_back_button_rect,
+            width=1,
+            border_radius=10,
+        )
+
+        self._draw_text(
+            "VOLTAR",
+            self.font_normal,
+            self.WHITE,
+            center=self.mode_back_button_rect.center,
+        )
+
+        self._draw_text(
+            "1: Reciclagem Geral | 2: Lixo Eletrônico",
+            self.font_small,
+            self.GRAY,
+            center=(400, 535),
+        )
+
+        # ==================================================
+    # APRESENTAÇÃO DO MODO ELETRÔNICO
     # ==================================================
+
+    def _draw_ewaste_preview(self) -> None:
+        """
+        Apresenta os objetivos do futuro modo Lixo Eletrônico.
+        """
+
+        self.screen.blit(
+            self.background_surface,
+            (0, 0),
+        )
+
+        self._draw_text(
+            "LIXO ELETRÔNICO",
+            self.font_title,
+            (100, 180, 255),
+            center=(400, 90),
+        )
+
+        self._draw_text(
+            "Uma nova experiência educativa está sendo preparada.",
+            self.font_subtitle,
+            self.WHITE,
+            center=(400, 145),
+        )
+
+        # Painel principal.
+        panel = pygame.Rect(
+            100,
+            190,
+            600,
+            240,
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (20, 39, 52),
+            panel,
+            border_radius=16,
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (49, 130, 206),
+            panel,
+            width=2,
+            border_radius=16,
+        )
+
+        # Conteúdo previsto.
+        messages = [
+            "Avaliar equipamentos que ainda podem ser reutilizados.",
+            "Identificar equipamentos que podem passar por reparo.",
+            "Encaminhar eletrônicos para destinação apropriada.",
+            "Separar pilhas e baterias em pontos que as aceitem.",
+            "Proteger os dados antes de destinar dispositivos.",
+        ]
+
+        for index, message in enumerate(messages):
+
+            self._draw_text(
+                message,
+                self.font_small,
+                self.WHITE,
+                center=(400, 225 + index * 36),
+            )
+
+        self._draw_text(
+            "MODO EM DESENVOLVIMENTO",
+            self.font_normal,
+            (100, 180, 255),
+            center=(400, 470),
+        )
+
+        self._draw_text(
+            "Pressione ENTER ou ESC para voltar à seleção",
+            self.font_small,
+            self.GREEN,
+            center=(400, 520),
+        )
+
+        # Botão de retorno.
+        mouse_position = pygame.mouse.get_pos()
+
+        hovered = self.mode_back_button_rect.collidepoint(
+            mouse_position
+        )
+
+        background_color = (
+            (42, 58, 69)
+            if hovered
+            else (20, 39, 52)
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            background_color,
+            self.mode_back_button_rect,
+            border_radius=10,
+        )
+
+        pygame.draw.rect(
+            self.screen,
+            (49, 130, 206),
+            self.mode_back_button_rect,
+            width=2,
+            border_radius=10,
+        )
+
+        self._draw_text(
+            "VOLTAR",
+            self.font_normal,
+            self.WHITE,
+            center=self.mode_back_button_rect.center,
+        )
+
+        # ==================================================
+        # TELA DE INSTRUÇÕES
+        # ==================================================
 
     def _draw_instructions(self) -> None:
         """Desenha a tela de instruções."""
@@ -1233,9 +1714,9 @@ class EcoDropGame:
             center=(400, 568),
         )
 
-    # ==================================================
-    # TELA DA PARTIDA
-    # ==================================================
+        # ==================================================
+        # TELA DA PARTIDA
+        # ==================================================
 
     def _draw_game(self) -> None:
         """Desenha o cenário e os elementos da partida."""
@@ -1382,9 +1863,9 @@ class EcoDropGame:
             center=(400, 583),
         )
 
-    # ==================================================
-    # TELA DE FIM DE JOGO
-    # ==================================================
+        # ==================================================
+        # TELA DE FIM DE JOGO
+        # ==================================================
 
     def _draw_game_over(self) -> None:
         """Desenha a tela de fim de jogo e os recordes."""
@@ -1473,16 +1954,27 @@ class EcoDropGame:
             center=(400, 560),
         )
 
-    # ==================================================
-    # DESENHAR AS TELAS E AS PARTÍCULAS
-    # ==================================================
+        # ==================================================
+        # DESENHAR AS TELAS E AS PARTÍCULAS
+        # ==================================================
 
     def _draw(self) -> None:
-        """Desenha a tela atual e as partículas."""
+        """
+        Desenha a tela correspondente ao estado atual
+        e apresenta as partículas ativas.
+        """
 
         if self.state == self.MENU:
 
             self._draw_menu()
+
+        elif self.state == self.MODE_SELECT:
+
+            self._draw_mode_select()
+
+        elif self.state == self.EWASTE_PREVIEW:
+
+            self._draw_ewaste_preview()
 
         elif self.state == self.INSTRUCTIONS:
 
@@ -1496,7 +1988,7 @@ class EcoDropGame:
 
             self._draw_game_over()
 
-        # As partículas ficam acima da interface.
+        # Mantém as animações de partículas.
         for effect in self.effects:
 
             effect.draw(
@@ -1505,9 +1997,9 @@ class EcoDropGame:
 
         pygame.display.flip()
 
-    # ==================================================
-    # LOOP PRINCIPAL
-    # ==================================================
+        # ==================================================
+        # LOOP PRINCIPAL
+        # ==================================================
 
     def run(self) -> None:
         """
