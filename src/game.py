@@ -5,6 +5,11 @@ from src.audio import AudioManager
 from src.bin import Bin
 from src.effects import ParticleBurst
 from src.education import get_education_tip
+from src.electronic_content import (
+    ELECTRONIC_CATEGORIES,
+    ELECTRONIC_WASTE_TYPES,
+    get_electronic_tip,
+)
 from src.item import WasteItem
 from src.modes import GAME_MODES, MODE_ELECTRONIC, MODE_GENERAL
 from src.records import RecordManager
@@ -413,38 +418,95 @@ class EcoDropGame:
         self.new_record = False
 
     # ==================================================
+    # CONFIGURAR A MODALIDADE
+    # ==================================================
+
+    def _configure_mode(self, mode: str) -> None:
+        """Configura lixeiras, categorias e resíduos do modo escolhido."""
+
+        if mode == MODE_ELECTRONIC:
+            # Quatro estações específicas para resíduos eletrônicos.
+            bin_data = ELECTRONIC_CATEGORIES
+            bin_width = 170
+            bin_gap = 20
+            first_x = 30
+            self.waste_types = list(ELECTRONIC_WASTE_TYPES)
+
+        else:
+            # Mantém exatamente as cinco categorias da modalidade original.
+            bin_data = [
+                ("papel", "PAPEL", (49, 130, 206)),
+                ("plastico", "PLÁSTICO", (220, 66, 66)),
+                ("vidro", "VIDRO", (46, 160, 100)),
+                ("metal", "METAL", (225, 170, 45)),
+                ("organico", "ORGÂNICOS", (133, 94, 66)),
+            ]
+            bin_width = 136
+            bin_gap = 16
+            first_x = 28
+            self.waste_types = [
+                ("Jornal", "papel"),
+                ("Caixa de papelão", "papel"),
+                ("Garrafa PET", "plastico"),
+                ("Pote plástico", "plastico"),
+                ("Garrafa de vidro", "vidro"),
+                ("Pote de vidro", "vidro"),
+                ("Lata de alumínio", "metal"),
+                ("Lata de conserva", "metal"),
+                ("Casca de banana", "organico"),
+                ("Restos de frutas", "organico"),
+            ]
+
+        self.bins = []
+
+        for index, (category, label, color) in enumerate(bin_data):
+            bin_object = Bin(
+                x=first_x + index * (bin_width + bin_gap),
+                y=460,
+                width=bin_width,
+                height=95,
+                category=category,
+                label=label,
+                color=color,
+            )
+            self.bins.append(bin_object)
+
+        # O centro de cada estação determina a coluna de movimentação.
+        self.lane_centers = [
+            bin_object.rect.centerx
+            for bin_object in self.bins
+        ]
+
+        # Ajusta o destaque visual à largura das colunas da modalidade.
+        glow_width = 142 if mode == MODE_ELECTRONIC else 108
+        self.lane_glow_surface = pygame.Surface(
+            (glow_width, 310),
+            pygame.SRCALPHA,
+        )
+        pygame.draw.rect(
+            self.lane_glow_surface,
+            (52, 211, 153, 24),
+            self.lane_glow_surface.get_rect(),
+            border_radius=18,
+        )
+
+        self.selected_mode = mode
+
+    # ==================================================
     # INICIAR PARTIDA
     # ==================================================
 
     def _start_game(self, mode: str = MODE_GENERAL) -> None:
-        """
-        Inicia uma partida do modo selecionado.
+        """Inicia uma partida com a configuração da modalidade escolhida."""
 
-        Nesta etapa, somente o modo Reciclagem Geral
-        está implementado como partida jogável.
-        """
+        # Prepara as estações e os itens específicos do modo.
+        self._configure_mode(mode)
 
-        # O modo eletrônico ainda está sendo desenvolvido.
-        # Se for selecionado, mostramos sua tela de apresentação.
-        if mode == MODE_ELECTRONIC:
-
-            self.selected_mode = MODE_ELECTRONIC
-            self.state = self.EWASTE_PREVIEW
-
-            return
-
-        # A partida atual continua sendo a Reciclagem Geral.
-        self.selected_mode = MODE_GENERAL
-
-        # Reinicializa os dados da partida.
+        # Reinicializa pontuação, vidas, efeitos e dificuldade.
         self._reset_round()
 
         self.state = self.PLAYING
-
-        # Reproduz o som de início.
         self.audio.play_start()
-
-        # Cria o primeiro resíduo.
         self._spawn_item()
 
     # ==================================================
@@ -466,12 +528,23 @@ class EcoDropGame:
             self.current_lane
         ]
 
+        # Os nomes dos eletrônicos são maiores; por isso, o cartão
+        # recebe mais largura nessa modalidade para facilitar a leitura.
+        if self.selected_mode == MODE_ELECTRONIC:
+            item_width = 160
+            item_height = 60
+        else:
+            item_width = 132
+            item_height = 54
+
         self.current_item = WasteItem(
             name=name,
             category=category,
             x=lane_x,
             y=175,
             fall_speed=self.fall_speed,
+            width=item_width,
+            height=item_height,
         )
 
         self.spawn_timer = 0
@@ -858,10 +931,11 @@ class EcoDropGame:
 
             self.score += points
 
-            # Exibir uma dica educativa.
-            education_tip = get_education_tip(
-                item.name
-            )
+            # Exibir uma dica educativa correspondente à modalidade.
+            if self.selected_mode == MODE_ELECTRONIC:
+                education_tip = get_electronic_tip(item.name)
+            else:
+                education_tip = get_education_tip(item.name)
 
             self.feedback_text = (
                 f"Correto! +{points} | {education_tip}"
@@ -1770,11 +1844,25 @@ class EcoDropGame:
             1,
         )
 
+        if self.selected_mode == MODE_ELECTRONIC:
+            instruction = "Use as setas para escolher a destinação correta"
+            mode_label = "MODO: LIXO ELETRÔNICO"
+        else:
+            instruction = "Use as setas para escolher a lixeira correta"
+            mode_label = "MODO: RECICLAGEM GERAL"
+
         self._draw_text(
-            "Use as setas para escolher a lixeira correta",
+            mode_label,
+            self.font_small,
+            self.GREEN,
+            center=(400, 77),
+        )
+
+        self._draw_text(
+            instruction,
             self.font_normal,
             self.GRAY,
-            center=(400, 88),
+            center=(400, 105),
         )
 
         # Feedback de acertos e erros.
@@ -1784,7 +1872,7 @@ class EcoDropGame:
                 self.feedback_text,
                 self.font_small,
                 self.feedback_color,
-                center=(400, 124),
+                center=(400, 132),
             )
 
         # Destaque da coluna selecionada.
