@@ -23,7 +23,7 @@ GAME_MODES = {
 
     MODE_ELECTRONIC: {
         "title": "LIXO ELETRÔNICO",
-        "status": "EM DESENVOLVIMENTO",
+        "status": "Disponivel",
         "description": [
             "Conheça o destino de equipamentos de TI.",
             "Aprenda sobre reparo e logística reversa.",

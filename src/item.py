@@ -651,6 +651,197 @@ class WasteItem:
             )
 
         # ----------------------------------------------
+        # CELULAR
+        # ----------------------------------------------
+
+        elif name.startswith("celular"):
+
+            pygame.draw.rect(
+                surface,
+                (35, 43, 55),
+                (14, 5, 20, 44),
+                border_radius=4,
+            )
+            pygame.draw.rect(
+                surface,
+                (91, 174, 190),
+                (17, 10, 14, 32),
+                border_radius=2,
+            )
+            pygame.draw.circle(surface, (220, 230, 232), (24, 46), 1)
+            pygame.draw.line(surface, (190, 224, 225), (19, 14), (29, 14), 1)
+
+        # ----------------------------------------------
+        # NOTEBOOK
+        # ----------------------------------------------
+
+        elif name.startswith("notebook"):
+
+            pygame.draw.rect(
+                surface,
+                (54, 68, 82),
+                (8, 7, 31, 27),
+                border_radius=3,
+            )
+            pygame.draw.rect(
+                surface,
+                (92, 164, 181),
+                (11, 10, 25, 20),
+                border_radius=1,
+            )
+            pygame.draw.polygon(
+                surface,
+                (178, 190, 198),
+                [(5, 36), (42, 36), (37, 44), (10, 44)],
+            )
+            pygame.draw.line(surface, (95, 111, 122), (10, 39), (37, 39), 1)
+
+        # ----------------------------------------------
+        # TECLADO
+        # ----------------------------------------------
+
+        elif name.startswith("teclado"):
+
+            pygame.draw.rect(
+                surface,
+                (57, 68, 80),
+                (5, 17, 39, 25),
+                border_radius=4,
+            )
+            for row_y in (22, 28, 34):
+                for column_x in (11, 19, 27, 35):
+                    pygame.draw.rect(
+                        surface,
+                        (190, 205, 211),
+                        (column_x, row_y, 4, 3),
+                        border_radius=1,
+                    )
+
+        # ----------------------------------------------
+        # MONITOR
+        # ----------------------------------------------
+
+        elif name.startswith("monitor"):
+
+            pygame.draw.rect(
+                surface,
+                (48, 59, 72),
+                (5, 8, 40, 29),
+                border_radius=4,
+            )
+            pygame.draw.rect(
+                surface,
+                (91, 161, 176),
+                (9, 12, 32, 20),
+                border_radius=2,
+            )
+            pygame.draw.line(surface, (168, 183, 188), (25, 37), (25, 44), 3)
+            pygame.draw.line(surface, (168, 183, 188), (16, 45), (34, 45), 3)
+
+        # ----------------------------------------------
+        # MOUSE
+        # ----------------------------------------------
+
+        elif name.startswith("mouse"):
+
+            pygame.draw.ellipse(
+                surface,
+                (75, 91, 106),
+                (13, 8, 25, 39),
+            )
+            pygame.draw.ellipse(
+                surface,
+                (181, 197, 202),
+                (13, 8, 25, 39),
+                2,
+            )
+            pygame.draw.line(surface, (190, 207, 211), (25, 10), (25, 25), 2)
+            pygame.draw.line(surface, (190, 207, 211), (25, 12), (25, 18), 2)
+
+        # ----------------------------------------------
+        # CARREGADOR
+        # ----------------------------------------------
+
+        elif name.startswith("carregador"):
+
+            pygame.draw.rect(
+                surface,
+                (205, 214, 216),
+                (13, 15, 21, 24),
+                border_radius=4,
+            )
+            pygame.draw.line(surface, (210, 218, 220), (19, 15), (19, 8), 3)
+            pygame.draw.line(surface, (210, 218, 220), (28, 15), (28, 8), 3)
+            pygame.draw.circle(surface, (90, 111, 123), (23, 27), 3, 1)
+
+        # ----------------------------------------------
+        # CABO USB
+        # ----------------------------------------------
+
+        elif name.startswith("cabo usb"):
+
+            pygame.draw.arc(
+                surface,
+                (119, 167, 180),
+                (10, 8, 30, 36),
+                0.2,
+                3.0,
+                4,
+            )
+            pygame.draw.rect(surface, (190, 202, 207), (7, 8, 10, 8), border_radius=2)
+            pygame.draw.rect(surface, (190, 202, 207), (32, 37, 10, 8), border_radius=2)
+            pygame.draw.line(surface, (86, 108, 120), (10, 10), (10, 14), 1)
+            pygame.draw.line(surface, (86, 108, 120), (35, 39), (35, 43), 1)
+
+        # ----------------------------------------------
+        # PLACA ELETRÔNICA
+        # ----------------------------------------------
+
+        elif name.startswith("placa eletrônica"):
+
+            pygame.draw.rect(
+                surface,
+                (48, 119, 91),
+                (5, 9, 40, 36),
+                border_radius=3,
+            )
+            pygame.draw.rect(surface, (35, 67, 61), (17, 17, 15, 15))
+            pygame.draw.rect(surface, (193, 174, 105), (8, 13, 6, 5))
+            pygame.draw.rect(surface, (193, 174, 105), (34, 31, 7, 8))
+            pygame.draw.line(surface, (193, 174, 105), (14, 20), (18, 20), 2)
+            pygame.draw.line(surface, (193, 174, 105), (32, 24), (38, 24), 2)
+            pygame.draw.line(surface, (193, 174, 105), (24, 32), (24, 40), 2)
+
+        # ----------------------------------------------
+        # PILHA E BATERIAS
+        # ----------------------------------------------
+
+        elif name.startswith("pilha"):
+
+            pygame.draw.rect(
+                surface,
+                (190, 197, 199),
+                (14, 12, 20, 33),
+                border_radius=4,
+            )
+            pygame.draw.rect(surface, (225, 183, 63), (14, 12, 20, 9), border_radius=3)
+            pygame.draw.rect(surface, (91, 105, 114), (21, 8, 7, 4), border_radius=1)
+            pygame.draw.line(surface, (112, 126, 132), (17, 27), (31, 27), 2)
+
+        elif name.startswith("bateria"):
+
+            pygame.draw.rect(
+                surface,
+                (61, 75, 88),
+                (8, 16, 32, 27),
+                border_radius=4,
+            )
+            pygame.draw.rect(surface, (187, 198, 198), (18, 12, 12, 4), border_radius=1)
+            pygame.draw.rect(surface, (92, 174, 130), (12, 21, 24, 17), border_radius=2)
+            pygame.draw.line(surface, (236, 241, 230), (19, 29), (29, 29), 2)
+            pygame.draw.line(surface, (236, 241, 230), (24, 24), (24, 34), 2)
+
+        # ----------------------------------------------
         # SÍMBOLO GENÉRICO
         # ----------------------------------------------
 
