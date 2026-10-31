@@ -13,6 +13,7 @@ from src.electronic_content import (
 from src.item import WasteItem
 from src.modes import GAME_MODES, MODE_ELECTRONIC, MODE_GENERAL
 from src.records import RecordManager
+from src.quiz_content import QUIZ_QUESTIONS
 
 class EcoDropGame:
     """
@@ -35,6 +36,8 @@ class EcoDropGame:
     INSTRUCTIONS = "instructions"
     PLAYING = "playing"
     GAME_OVER = "game_over"
+    QUIZ = "quiz"
+    QUIZ_RESULT = "quiz_result"
 
     WIDTH = 800
     HEIGHT = 600
@@ -138,6 +141,24 @@ class EcoDropGame:
             455,
             200,
             48,
+        )
+
+        # Botão opcional do desafio, exibido somente no fim
+        # de uma partida do modo Lixo Eletrônico.
+        self.quiz_start_button_rect = pygame.Rect(
+            175, 465, 450, 42
+        )
+
+        # Áreas interativas da tela do questionário.
+        self.quiz_option_rects = [
+            pygame.Rect(125, 270 + index * 54, 550, 44)
+            for index in range(3)
+        ]
+        self.quiz_continue_button_rect = pygame.Rect(
+            285, 500, 230, 42
+        )
+        self.quiz_result_button_rect = pygame.Rect(
+            285, 455, 230, 46
         )
 
         # Modo selecionado inicialmente.
@@ -417,6 +438,16 @@ class EcoDropGame:
         # Indicador de recorde da partida atual.
         self.new_record = False
 
+        # Estado do desafio opcional (separado da pontuação da partida).
+        self.quiz_questions = []
+        self.quiz_question_index = 0
+        self.current_question = None
+        self.quiz_correct_answers = 0
+        self.quiz_answered = False
+        self.quiz_selected_index = None
+        self.quiz_feedback = ""
+        self.quiz_was_correct = False
+
     # ==================================================
     # CONFIGURAR A MODALIDADE
     # ==================================================
@@ -491,6 +522,85 @@ class EcoDropGame:
         )
 
         self.selected_mode = mode
+
+    # ==================================================
+    # DESAFIO EDUCATIVO OPCIONAL
+    # ==================================================
+
+    def _start_quiz(self) -> None:
+        """Inicia o questionário opcional depois do fim da partida."""
+
+        # O questionário foi criado para aprofundar o modo eletrônico.
+        if self.selected_mode != MODE_ELECTRONIC:
+            return
+
+        # Cada pergunta aparece uma vez, em ordem aleatória.
+        self.quiz_questions = random.sample(
+            QUIZ_QUESTIONS,
+            k=len(QUIZ_QUESTIONS),
+        )
+        self.quiz_question_index = 0
+        self.quiz_correct_answers = 0
+        self._load_quiz_question()
+        self.state = self.QUIZ
+
+    def _load_quiz_question(self) -> None:
+        """Carrega a pergunta atual e limpa o feedback anterior."""
+
+        self.current_question = self.quiz_questions[
+            self.quiz_question_index
+        ]
+        self.quiz_answered = False
+        self.quiz_selected_index = None
+        self.quiz_feedback = ""
+        self.quiz_was_correct = False
+
+    def _answer_quiz(self, selected_index: int) -> None:
+        """Verifica uma alternativa sem alterar pontos ou recordes da partida."""
+
+        if self.current_question is None or self.quiz_answered:
+            return
+
+        options = self.current_question["options"]
+        if not 0 <= selected_index < len(options):
+            return
+
+        self.quiz_selected_index = selected_index
+        correct_index = self.current_question["correct_index"]
+        self.quiz_was_correct = selected_index == correct_index
+        explanation = self.current_question["explanation"]
+
+        if self.quiz_was_correct:
+            self.quiz_correct_answers += 1
+            self.quiz_feedback = f"Resposta correta! {explanation}"
+        else:
+            correct_option = options[correct_index]
+            self.quiz_feedback = (
+                f"A resposta correta era: {correct_option}. {explanation}"
+            )
+
+        # O questionário não retira vidas nem altera a pontuação/recorde.
+        self.quiz_answered = True
+
+    def _continue_after_quiz(self) -> None:
+        """Avança para a próxima pergunta ou mostra o resultado final."""
+
+        if not self.quiz_answered:
+            return
+
+        self.quiz_question_index += 1
+
+        if self.quiz_question_index < len(self.quiz_questions):
+            self._load_quiz_question()
+        else:
+            self.current_question = None
+            self.state = self.QUIZ_RESULT
+
+    def _cancel_quiz(self) -> None:
+        """Fecha o desafio e retorna à tela de fim de jogo."""
+
+        self.current_question = None
+        self.state = self.GAME_OVER
 
     # ==================================================
     # INICIAR PARTIDA
@@ -678,6 +788,35 @@ class EcoDropGame:
 
                             self.state = self.MODE_SELECT
 
+                    # Desafio opcional disponível depois da partida.
+                    elif self.state == self.GAME_OVER:
+
+                        if (
+                            self.selected_mode == MODE_ELECTRONIC
+                            and self.quiz_start_button_rect.collidepoint(event.pos)
+                        ):
+                            self._start_quiz()
+
+                    # Respostas do questionário opcional.
+                    elif self.state == self.QUIZ:
+
+                        if not self.quiz_answered:
+                            for index, option_rect in enumerate(
+                                self.quiz_option_rects
+                            ):
+                                if option_rect.collidepoint(event.pos):
+                                    self._answer_quiz(index)
+                                    break
+                        elif self.quiz_continue_button_rect.collidepoint(
+                            event.pos
+                        ):
+                            self._continue_after_quiz()
+
+                    elif self.state == self.QUIZ_RESULT:
+
+                        if self.quiz_result_button_rect.collidepoint(event.pos):
+                            self.state = self.GAME_OVER
+
                 # O clique já foi processado.
                 continue
 
@@ -798,6 +937,39 @@ class EcoDropGame:
                     self._move_lane(1)
 
             # ----------------------------------------------
+            # DESAFIO EDUCATIVO
+            # ----------------------------------------------
+
+            elif self.state == self.QUIZ:
+
+                if event.key == pygame.K_ESCAPE:
+                    self._cancel_quiz()
+
+                elif not self.quiz_answered and event.key in (
+                    pygame.K_1, pygame.K_KP1,
+                    pygame.K_2, pygame.K_KP2,
+                    pygame.K_3, pygame.K_KP3,
+                ):
+                    key_to_index = {
+                        pygame.K_1: 0, pygame.K_KP1: 0,
+                        pygame.K_2: 1, pygame.K_KP2: 1,
+                        pygame.K_3: 2, pygame.K_KP3: 2,
+                    }
+                    self._answer_quiz(key_to_index[event.key])
+
+                elif self.quiz_answered and event.key in (
+                    pygame.K_RETURN, pygame.K_SPACE,
+                ):
+                    self._continue_after_quiz()
+
+            elif self.state == self.QUIZ_RESULT:
+
+                if event.key in (
+                    pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE,
+                ):
+                    self.state = self.GAME_OVER
+
+            # ----------------------------------------------
             # FIM DE JOGO
             # ----------------------------------------------
 
@@ -812,6 +984,13 @@ class EcoDropGame:
                     self._start_game(
                         self.selected_mode
                     )
+
+                # Abrir o desafio opcional apenas no modo eletrônico.
+                elif (
+                    event.key == pygame.K_q
+                    and self.selected_mode == MODE_ELECTRONIC
+                ):
+                    self._start_quiz()
 
                 # Voltar ao menu.
                 elif event.key == pygame.K_ESCAPE:
@@ -1077,6 +1256,52 @@ class EcoDropGame:
         # ==================================================
         # BOTÕES DO MENU
         # ==================================================
+
+    def _draw_wrapped_text(
+        self,
+        text: str,
+        font: pygame.font.Font,
+        color: tuple[int, int, int],
+        center: tuple[int, int],
+        max_width: int,
+        line_spacing: int = 22,
+        max_lines: int = 3,
+    ) -> None:
+        """Desenha um texto em múltiplas linhas dentro de uma largura."""
+
+        words = text.split()
+        lines = []
+        current_line = ""
+
+        for word in words:
+            candidate = f"{current_line} {word}".strip()
+            if font.size(candidate)[0] <= max_width:
+                current_line = candidate
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = word
+
+        if current_line:
+            lines.append(current_line)
+
+        lines = lines[:max_lines]
+        if len(words) and len(lines) == max_lines:
+            rendered_words = " ".join(lines).split()
+            if len(rendered_words) < len(words):
+                last = lines[-1]
+                while last and font.size(last + "...")[0] > max_width:
+                    last = last.rsplit(" ", 1)[0] if " " in last else ""
+                lines[-1] = (last + "...") if last else "..."
+
+        start_y = center[1] - ((len(lines) - 1) * line_spacing) // 2
+        for index, line in enumerate(lines):
+            self._draw_text(
+                line,
+                font,
+                color,
+                center=(center[0], start_y + index * line_spacing),
+            )
 
     def _draw_menu_button(
         self,
@@ -1955,6 +2180,218 @@ class EcoDropGame:
         # TELA DE FIM DE JOGO
         # ==================================================
 
+    def _draw_quiz(self) -> None:
+        """Desenha a pergunta educativa e suas alternativas."""
+
+        self.screen.blit(self.background_surface, (0, 0))
+
+        panel = pygame.Rect(70, 85, 660, 470)
+        pygame.draw.rect(
+            self.screen, (17, 34, 49), panel, border_radius=18
+        )
+        pygame.draw.rect(
+            self.screen, (49, 130, 206), panel, width=2, border_radius=18
+        )
+
+        self._draw_text(
+            "DESAFIO DE CONHECIMENTO",
+            self.font_title,
+            (100, 180, 255),
+            center=(400, 135),
+        )
+        self._draw_text(
+            "Atividade opcional: suas respostas não alteram a pontuação da partida",
+            self.font_small,
+            self.GRAY,
+            center=(400, 175),
+        )
+
+        if self.current_question is None:
+            return
+
+        self._draw_text(
+            f"Pergunta {self.quiz_question_index + 1} de {len(self.quiz_questions)}",
+            self.font_small,
+            (100, 180, 255),
+            center=(400, 202),
+        )
+
+        self._draw_text(
+            self.current_question["question"],
+            self.font_normal,
+            self.WHITE,
+            center=(400, 235),
+        )
+
+        mouse_position = pygame.mouse.get_pos()
+        correct_index = self.current_question["correct_index"]
+
+        for index, (option, option_rect) in enumerate(zip(
+            self.current_question["options"], self.quiz_option_rects
+        )):
+            background_color = (23, 47, 63)
+            border_color = (75, 105, 125)
+
+            if self.quiz_answered and index == correct_index:
+                background_color = (24, 83, 65)
+                border_color = self.GREEN
+            elif (
+                self.quiz_answered
+                and index == self.quiz_selected_index
+                and not self.quiz_was_correct
+            ):
+                background_color = (91, 43, 48)
+                border_color = self.RED
+            elif not self.quiz_answered and option_rect.collidepoint(
+                mouse_position
+            ):
+                background_color = (37, 68, 83)
+                border_color = (100, 180, 255)
+
+            pygame.draw.rect(
+                self.screen, background_color, option_rect, border_radius=10
+            )
+            pygame.draw.rect(
+                self.screen, border_color, option_rect, width=2, border_radius=10
+            )
+
+            self._draw_text(
+                f"{index + 1}. {option}",
+                self.font_normal,
+                self.WHITE,
+                center=option_rect.center,
+            )
+
+        if self.quiz_answered:
+            feedback_color = self.GREEN if self.quiz_was_correct else (245, 195, 100)
+            self._draw_wrapped_text(
+                self.quiz_feedback,
+                self.font_small,
+                feedback_color,
+                center=(400, 460),
+                max_width=590,
+                line_spacing=20,
+                max_lines=2,
+            )
+
+            button_hovered = self.quiz_continue_button_rect.collidepoint(
+                mouse_position
+            )
+            button_color = (39, 82, 76) if button_hovered else (24, 58, 56)
+            pygame.draw.rect(
+                self.screen,
+                button_color,
+                self.quiz_continue_button_rect,
+                border_radius=9,
+            )
+            pygame.draw.rect(
+                self.screen,
+                self.GREEN,
+                self.quiz_continue_button_rect,
+                width=2,
+                border_radius=9,
+            )
+            self._draw_text(
+                "CONTINUAR",
+                self.font_normal,
+                self.WHITE,
+                center=self.quiz_continue_button_rect.center,
+            )
+        else:
+            self._draw_text(
+                "Clique em uma alternativa ou pressione 1, 2 ou 3",
+                self.font_small,
+                self.GRAY,
+                center=(400, 475),
+            )
+
+    def _draw_quiz_result(self) -> None:
+        """Apresenta o resultado educativo sem misturá-lo ao recorde do jogo."""
+
+        self.screen.blit(self.background_surface, (0, 0))
+
+        panel = pygame.Rect(100, 100, 600, 420)
+        pygame.draw.rect(
+            self.screen,
+            (20, 36, 52),
+            panel,
+            border_radius=18,
+        )
+        pygame.draw.rect(
+            self.screen,
+            (49, 130, 206),
+            panel,
+            width=2,
+            border_radius=18,
+        )
+
+        total_questions = len(self.quiz_questions)
+        correct_answers = self.quiz_correct_answers
+
+        self._draw_text(
+            "DESAFIO CONCLUÍDO!",
+            self.font_title,
+            (100, 180, 255),
+            center=(400, 195),
+        )
+        self._draw_text(
+            f"Você acertou {correct_answers} de {total_questions} perguntas.",
+            self.font_subtitle,
+            self.WHITE,
+            center=(400, 270),
+        )
+
+        if correct_answers == total_questions:
+            recognition = "CONQUISTA: GUARDIÃO DOS ELETRÔNICOS"
+            recognition_color = self.GREEN
+        elif correct_answers >= 4:
+            recognition = "CONQUISTA: CONHECEDOR CONSCIENTE"
+            recognition_color = self.GREEN
+        elif correct_answers >= 2:
+            recognition = "CONQUISTA: APRENDIZ AMBIENTAL"
+            recognition_color = (245, 195, 80)
+        else:
+            recognition = "CONTINUE APRENDENDO E FAÇA NOVAS DESCOBERTAS!"
+            recognition_color = self.GRAY
+
+        self._draw_text(
+            recognition,
+            self.font_normal,
+            recognition_color,
+            center=(400, 335),
+        )
+
+        self._draw_text(
+            "Este resultado é separado da pontuação e do recorde da partida.",
+            self.font_small,
+            self.GRAY,
+            center=(400, 385),
+        )
+
+        mouse_position = pygame.mouse.get_pos()
+        hovered = self.quiz_result_button_rect.collidepoint(mouse_position)
+        button_color = (39, 82, 76) if hovered else (24, 58, 56)
+
+        pygame.draw.rect(
+            self.screen,
+            button_color,
+            self.quiz_result_button_rect,
+            border_radius=9,
+        )
+        pygame.draw.rect(
+            self.screen,
+            self.GREEN,
+            self.quiz_result_button_rect,
+            width=2,
+            border_radius=9,
+        )
+        self._draw_text(
+            "VOLTAR AO FIM DE JOGO",
+            self.font_small,
+            self.WHITE,
+            center=self.quiz_result_button_rect.center,
+        )
+
     def _draw_game_over(self) -> None:
         """Desenha a tela de fim de jogo e os recordes."""
 
@@ -1964,7 +2401,7 @@ class EcoDropGame:
         )
 
         panel = pygame.Rect(
-            100, 125, 600, 350
+            100, 110, 600, 410
         )
 
         pygame.draw.rect(
@@ -2035,11 +2472,42 @@ class EcoDropGame:
             center=(400, 430),
         )
 
+        if self.selected_mode == MODE_ELECTRONIC:
+            mouse_position = pygame.mouse.get_pos()
+            hovered = self.quiz_start_button_rect.collidepoint(mouse_position)
+            button_color = (34, 78, 88) if hovered else (22, 53, 68)
+
+            pygame.draw.rect(
+                self.screen,
+                button_color,
+                self.quiz_start_button_rect,
+                border_radius=10,
+            )
+            pygame.draw.rect(
+                self.screen,
+                (100, 180, 255),
+                self.quiz_start_button_rect,
+                width=2,
+                border_radius=10,
+            )
+            self._draw_text(
+                "DESAFIO DE CONHECIMENTO (OPCIONAL)",
+                self.font_small,
+                self.WHITE,
+                center=self.quiz_start_button_rect.center,
+            )
+            self._draw_text(
+                "Q: iniciar desafio | não altera sua pontuação",
+                self.font_small,
+                self.GRAY,
+                center=(400, 535),
+            )
+
         self._draw_text(
             "Son Games",
             self.font_small,
             self.GRAY,
-            center=(400, 560),
+            center=(400, 575),
         )
 
         # ==================================================
@@ -2071,6 +2539,14 @@ class EcoDropGame:
         elif self.state == self.PLAYING:
 
             self._draw_game()
+
+        elif self.state == self.QUIZ:
+
+            self._draw_quiz()
+
+        elif self.state == self.QUIZ_RESULT:
+
+            self._draw_quiz_result()
 
         elif self.state == self.GAME_OVER:
 
