@@ -2,6 +2,7 @@ import random
 import pygame
 
 from src.audio import AudioManager
+from src.achievements import AchievementManager
 from src.bin import Bin
 from src.effects import ParticleBurst
 from src.education import get_education_tip
@@ -38,6 +39,7 @@ class EcoDropGame:
     GAME_OVER = "game_over"
     QUIZ = "quiz"
     QUIZ_RESULT = "quiz_result"
+    ACHIEVEMENTS = "achievements"
 
     WIDTH = 800
     HEIGHT = 600
@@ -60,9 +62,26 @@ class EcoDropGame:
         # JANELA
         # --------------------------------------------------
 
-        self.screen = pygame.display.set_mode(
-            (self.WIDTH, self.HEIGHT)
+        # A janela externa pode ser redimensionada pelo usuário.
+        # O jogo continua sendo desenhado em uma resolução lógica fixa;
+        # no final de cada quadro, essa superfície é ampliada para caber
+        # na janela sem distorcer os elementos.
+        self.fullscreen = False
+        self.windowed_size = self._get_initial_window_size()
+        self.window = pygame.display.set_mode(
+            self.windowed_size,
+            pygame.RESIZABLE,
         )
+
+        # Superfície lógica utilizada por todas as telas e elementos do jogo.
+        self.screen = pygame.Surface(
+            (self.WIDTH, self.HEIGHT)
+        ).convert()
+
+        self.viewport_rect = pygame.Rect(
+            0, 0, self.WIDTH, self.HEIGHT
+        )
+        self._update_viewport()
 
         pygame.display.set_caption(
             "EcoDrop | Son Games"
@@ -99,6 +118,8 @@ class EcoDropGame:
         # --------------------------------------------------
 
         self.records = RecordManager()
+        # Conquistas e estatísticas acumuladas entre partidas.
+        self.achievements = AchievementManager()
 
         # Indica se a partida atual estabeleceu um recorde.
         self.new_record = False
@@ -113,6 +134,11 @@ class EcoDropGame:
 
         self.instructions_button_rect = pygame.Rect(
             285, 375, 230, 52
+        )
+
+        # Abre a página de conquistas permanentes.
+        self.achievements_button_rect = pygame.Rect(
+            285, 440, 230, 48
         )
 
         # ==============================================
@@ -241,6 +267,128 @@ class EcoDropGame:
         self.running = True
 
         self._reset_round()
+
+    # ==================================================
+    # JANELA RESPONSIVA E ESCALONAMENTO
+    # ==================================================
+
+    def _get_initial_window_size(self) -> tuple[int, int]:
+        """Calcula um tamanho inicial confortável conforme o monitor."""
+
+        display_info = pygame.display.Info()
+        monitor_width = display_info.current_w
+        monitor_height = display_info.current_h
+
+        # Alguns drivers podem retornar valores inválidos antes da criação
+        # de uma janela. Nesse caso, usamos dimensões de fallback.
+        if monitor_width <= 0:
+            monitor_width = self.WIDTH * 1.5
+        if monitor_height <= 0:
+            monitor_height = self.HEIGHT * 1.5
+
+        # Reserva espaço para a barra de tarefas e a decoração da janela.
+        available_width = int(monitor_width * 0.92)
+        available_height = int(monitor_height * 0.88)
+
+        scale = min(
+            available_width / self.WIDTH,
+            available_height / self.HEIGHT,
+            1.8,
+        )
+
+        # Não força a janela além do tamanho físico de monitores pequenos.
+        scale = max(0.5, scale)
+
+        return (
+            max(1, round(self.WIDTH * scale)),
+            max(1, round(self.HEIGHT * scale)),
+        )
+
+    def _update_viewport(self) -> None:
+        """Calcula a área em que a superfície lógica será exibida."""
+
+        window_width, window_height = self.window.get_size()
+
+        scale = min(
+            window_width / self.WIDTH,
+            window_height / self.HEIGHT,
+        )
+
+        scaled_width = max(1, round(self.WIDTH * scale))
+        scaled_height = max(1, round(self.HEIGHT * scale))
+
+        # Centraliza a área do jogo e mantém a proporção original 4:3.
+        self.viewport_rect = pygame.Rect(
+            (window_width - scaled_width) // 2,
+            (window_height - scaled_height) // 2,
+            scaled_width,
+            scaled_height,
+        )
+
+    def _window_to_canvas(
+        self,
+        position: tuple[int, int],
+    ) -> tuple[int, int]:
+        """Converte o mouse da janela para as coordenadas internas do jogo."""
+
+        if not self.viewport_rect.collidepoint(position):
+            return (-1, -1)
+
+        relative_x = position[0] - self.viewport_rect.x
+        relative_y = position[1] - self.viewport_rect.y
+
+        logical_x = int(
+            relative_x * self.WIDTH / self.viewport_rect.width
+        )
+        logical_y = int(
+            relative_y * self.HEIGHT / self.viewport_rect.height
+        )
+
+        return (
+            max(0, min(self.WIDTH - 1, logical_x)),
+            max(0, min(self.HEIGHT - 1, logical_y)),
+        )
+
+    def _get_logical_mouse_pos(self) -> tuple[int, int]:
+        """Retorna a posição atual do mouse na resolução lógica do jogo."""
+
+        return self._window_to_canvas(pygame.mouse.get_pos())
+
+    def _toggle_fullscreen(self) -> None:
+        """Alterna entre janela redimensionável e tela cheia."""
+
+        if self.fullscreen:
+            self.window = pygame.display.set_mode(
+                self.windowed_size,
+                pygame.RESIZABLE,
+            )
+            self.fullscreen = False
+        else:
+            self.windowed_size = self.window.get_size()
+            self.window = pygame.display.set_mode(
+                (0, 0),
+                pygame.FULLSCREEN,
+            )
+            self.fullscreen = True
+
+        self._update_viewport()
+
+    def _present_frame(self) -> None:
+        """Amplia a tela lógica para a janela sem deformar o jogo."""
+
+        self.window.fill((6, 13, 24))
+
+        scaled_frame = pygame.transform.smoothscale(
+            self.screen,
+            self.viewport_rect.size,
+        )
+
+        self.window.blit(
+            scaled_frame,
+            self.viewport_rect.topleft,
+        )
+
+        pygame.display.flip()
 
     # ==================================================
     # CRIAÇÃO DO CENÁRIO
@@ -438,6 +586,11 @@ class EcoDropGame:
         # Indicador de recorde da partida atual.
         self.new_record = False
 
+        # Avisos da sessão são temporários; o progresso das conquistas
+        # permanece salvo no AchievementManager.
+        self.achievement_notice = ""
+        self.achievement_notice_timer = 0
+
         # Estado do desafio opcional (separado da pontuação da partida).
         self.quiz_questions = []
         self.quiz_question_index = 0
@@ -447,6 +600,7 @@ class EcoDropGame:
         self.quiz_selected_index = None
         self.quiz_feedback = ""
         self.quiz_was_correct = False
+        self.quiz_new_achievement = False
 
     # ==================================================
     # CONFIGURAR A MODALIDADE
@@ -541,6 +695,7 @@ class EcoDropGame:
         )
         self.quiz_question_index = 0
         self.quiz_correct_answers = 0
+        self.quiz_new_achievement = False
         self._load_quiz_question()
         self.state = self.QUIZ
 
@@ -594,6 +749,9 @@ class EcoDropGame:
             self._load_quiz_question()
         else:
             self.current_question = None
+            # A conquista só é registrada quando todas as perguntas
+            # foram respondidas, não quando o desafio é cancelado.
+            self.quiz_new_achievement = self.achievements.record_quiz_completed()
             self.state = self.QUIZ_RESULT
 
     def _cancel_quiz(self) -> None:
@@ -716,11 +874,39 @@ class EcoDropGame:
 
                 continue
 
+            # Redimensionamento da janela pelo mouse ou pelo sistema.
+            # No Pygame 2, a superfície de display acompanha o tamanho novo.
+            # Também observamos os eventos de janela introduzidos no Pygame 2.0.1.
+            resize_event = event.type == pygame.VIDEORESIZE
+
+            for event_name in ("WINDOWRESIZED", "WINDOWSIZECHANGED"):
+                event_code = getattr(pygame, event_name, None)
+                if event_code is not None and event.type == event_code:
+                    resize_event = True
+                    break
+
+            if resize_event and not self.fullscreen:
+
+                display_surface = pygame.display.get_surface()
+                if display_surface is not None:
+                    self.window = display_surface
+                    self.windowed_size = self.window.get_size()
+                    self._update_viewport()
+
+                continue
+
             # ==============================================
             # CLIQUES DO MOUSE
             # ==============================================
 
             if event.type == pygame.MOUSEBUTTONDOWN:
+
+                # Converte a posição real da janela para as coordenadas
+                # da superfície lógica. Cliques nas bordas externas são ignorados.
+                logical_mouse_pos = self._window_to_canvas(event.pos)
+
+                if logical_mouse_pos == (-1, -1):
+                    continue
 
                 # Considera apenas o botão esquerdo.
                 if event.button == 1:
@@ -733,17 +919,29 @@ class EcoDropGame:
 
                         # Jogar abre a seleção de modos.
                         if self.play_button_rect.collidepoint(
-                            event.pos
+                            logical_mouse_pos
                         ):
 
                             self.state = self.MODE_SELECT
 
                         # Instruções continua funcionando.
                         elif self.instructions_button_rect.collidepoint(
-                            event.pos
+                            logical_mouse_pos
                         ):
 
                             self.state = self.INSTRUCTIONS
+
+                        # Consultar conquistas acumuladas.
+                        elif self.achievements_button_rect.collidepoint(logical_mouse_pos):
+                            self.state = self.ACHIEVEMENTS
+
+                    # --------------------------------------
+                    # PÁGINA DE CONQUISTAS
+                    # --------------------------------------
+
+                    elif self.state == self.ACHIEVEMENTS:
+                        if self.mode_back_button_rect.collidepoint(logical_mouse_pos):
+                            self.state = self.MENU
 
                     # --------------------------------------
                     # SELEÇÃO DE MODOS
@@ -753,7 +951,7 @@ class EcoDropGame:
 
                         # Iniciar Reciclagem Geral.
                         if self.general_mode_rect.collidepoint(
-                            event.pos
+                            logical_mouse_pos
                         ):
 
                             self._start_game(
@@ -762,7 +960,7 @@ class EcoDropGame:
 
                         # Abrir apresentação do modo eletrônico.
                         elif self.electronic_mode_rect.collidepoint(
-                            event.pos
+                            logical_mouse_pos
                         ):
 
                             self._start_game(
@@ -771,7 +969,7 @@ class EcoDropGame:
 
                         # Voltar ao menu.
                         elif self.mode_back_button_rect.collidepoint(
-                            event.pos
+                            logical_mouse_pos
                         ):
 
                             self.state = self.MENU
@@ -783,7 +981,7 @@ class EcoDropGame:
                     elif self.state == self.EWASTE_PREVIEW:
 
                         if self.mode_back_button_rect.collidepoint(
-                            event.pos
+                            logical_mouse_pos
                         ):
 
                             self.state = self.MODE_SELECT
@@ -793,7 +991,7 @@ class EcoDropGame:
 
                         if (
                             self.selected_mode == MODE_ELECTRONIC
-                            and self.quiz_start_button_rect.collidepoint(event.pos)
+                            and self.quiz_start_button_rect.collidepoint(logical_mouse_pos)
                         ):
                             self._start_quiz()
 
@@ -804,17 +1002,17 @@ class EcoDropGame:
                             for index, option_rect in enumerate(
                                 self.quiz_option_rects
                             ):
-                                if option_rect.collidepoint(event.pos):
+                                if option_rect.collidepoint(logical_mouse_pos):
                                     self._answer_quiz(index)
                                     break
                         elif self.quiz_continue_button_rect.collidepoint(
-                            event.pos
+                            logical_mouse_pos
                         ):
                             self._continue_after_quiz()
 
                     elif self.state == self.QUIZ_RESULT:
 
-                        if self.quiz_result_button_rect.collidepoint(event.pos):
+                        if self.quiz_result_button_rect.collidepoint(logical_mouse_pos):
                             self.state = self.GAME_OVER
 
                 # O clique já foi processado.
@@ -825,6 +1023,11 @@ class EcoDropGame:
             # ==============================================
 
             if event.type != pygame.KEYDOWN:
+                continue
+
+            # F11 alterna para tela cheia ou retorna à janela.
+            if event.key == pygame.K_F11:
+                self._toggle_fullscreen()
                 continue
 
             # ----------------------------------------------
@@ -848,6 +1051,18 @@ class EcoDropGame:
                 ):
 
                     self.state = self.INSTRUCTIONS
+
+                elif event.key == pygame.K_c:
+                    self.state = self.ACHIEVEMENTS
+
+            # ----------------------------------------------
+            # CONQUISTAS
+            # ----------------------------------------------
+
+            elif self.state == self.ACHIEVEMENTS:
+
+                if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                    self.state = self.MENU
 
             # ----------------------------------------------
             # SELEÇÃO DE MODOS
@@ -1031,6 +1246,12 @@ class EcoDropGame:
             if transition_item.finished:
                 self.transition_item = None
 
+        # Atualizar o aviso temporário de conquista.
+        if self.achievement_notice_timer > 0:
+            self.achievement_notice_timer -= 1
+            if self.achievement_notice_timer == 0:
+                self.achievement_notice = ""
+
         # Atualizar o tempo do feedback.
         if self.feedback_timer > 0:
 
@@ -1109,6 +1330,17 @@ class EcoDropGame:
             points = 100 * self.combo
 
             self.score += points
+
+            # Atualiza conquistas persistentes sem modificar pontos, vidas
+            # ou regras da partida. O gerenciador evita desbloqueios duplicados.
+            newly_unlocked = self.achievements.record_correct_classification(
+                combo=self.combo,
+                score=self.score,
+            )
+            if newly_unlocked:
+                first_title = newly_unlocked[0]["title"]
+                self.achievement_notice = f"Nova conquista: {first_title}"
+                self.achievement_notice_timer = 180
 
             # Exibir uma dica educativa correspondente à modalidade.
             if self.selected_mode == MODE_ELECTRONIC:
@@ -1384,7 +1616,7 @@ class EcoDropGame:
         )
 
         # Detectar a posição do mouse.
-        mouse_position = pygame.mouse.get_pos()
+        mouse_position = self._get_logical_mouse_pos()
 
         self._draw_menu_button(
             rect=self.play_button_rect,
@@ -1404,18 +1636,25 @@ class EcoDropGame:
             border_color=(49, 130, 206),
         )
 
+        self._draw_menu_button(
+            rect=self.achievements_button_rect,
+            label="CONQUISTAS",
+            hovered=self.achievements_button_rect.collidepoint(mouse_position),
+            border_color=(225, 170, 45),
+        )
+
         self._draw_text(
             "Clique em um botão ou use o teclado",
             self.font_small,
             self.GRAY,
-            center=(400, 460),
+            center=(400, 510),
         )
 
         self._draw_text(
-            "ENTER / ESPAÇO: jogar | I: instruções",
+            "ENTER: jogar | I: instruções | C: conquistas | F11: tela cheia",
             self.font_small,
             self.GREEN,
-            center=(400, 490),
+            center=(400, 535),
         )
 
         self._draw_text(
@@ -1426,6 +1665,89 @@ class EcoDropGame:
         )
 
         # ==================================================
+    # CONQUISTAS
+    # ==================================================
+
+    def _draw_achievements(self) -> None:
+        """Exibe as conquistas desbloqueadas e o progresso salvo."""
+
+        self.screen.blit(self.background_surface, (0, 0))
+
+        cards = self.achievements.get_achievement_cards()
+        unlocked_count = self.achievements.unlocked_count
+
+        self._draw_text(
+            "CONQUISTAS",
+            self.font_title,
+            (245, 195, 80),
+            center=(400, 70),
+        )
+        self._draw_text(
+            f"Desbloqueadas: {unlocked_count} de {len(cards)}",
+            self.font_subtitle,
+            self.WHITE,
+            center=(400, 118),
+        )
+
+        for index, card in enumerate(cards):
+            column = index % 2
+            row = index // 2
+            rect = pygame.Rect(55 + column * 355, 155 + row * 145, 335, 130)
+
+            accent = self.GREEN if card["unlocked"] else (105, 125, 145)
+            background = (25, 55, 55) if card["unlocked"] else (20, 39, 52)
+
+            pygame.draw.rect(
+                self.screen, background, rect, border_radius=13
+            )
+            pygame.draw.rect(
+                self.screen, accent, rect, width=2, border_radius=13
+            )
+
+            self._draw_text(
+                card["title"],
+                self.font_normal,
+                accent,
+                center=(rect.centerx, rect.y + 23),
+            )
+            self._draw_wrapped_text(
+                card["description"],
+                self.font_small,
+                self.WHITE,
+                center=(rect.centerx, rect.y + 62),
+                max_width=300,
+                line_spacing=17,
+                max_lines=2,
+            )
+
+            status = (
+                "CONQUISTADA"
+                if card["unlocked"]
+                else f"BLOQUEADA | {card['progress']}"
+            )
+            self._draw_text(
+                status,
+                self.font_small,
+                accent,
+                center=(rect.centerx, rect.y + 110),
+            )
+
+        hovered = self.mode_back_button_rect.collidepoint(self._get_logical_mouse_pos())
+        button_color = (42, 58, 69) if hovered else (20, 39, 52)
+        pygame.draw.rect(
+            self.screen, button_color, self.mode_back_button_rect, border_radius=10
+        )
+        pygame.draw.rect(
+            self.screen, self.GRAY, self.mode_back_button_rect, width=1, border_radius=10
+        )
+        self._draw_text(
+            "VOLTAR AO MENU",
+            self.font_normal,
+            self.WHITE,
+            center=self.mode_back_button_rect.center,
+        )
+
+    # ==================================================
     # SELEÇÃO DE MODOS
     # ==================================================
 
@@ -1457,7 +1779,7 @@ class EcoDropGame:
             center=(400, 135),
         )
 
-        mouse_position = pygame.mouse.get_pos()
+        mouse_position = self._get_logical_mouse_pos()
 
         # ----------------------------------------------
         # CARTÃO: RECICLAGEM GERAL
@@ -1700,7 +2022,7 @@ class EcoDropGame:
         )
 
         # Botão de retorno.
-        mouse_position = pygame.mouse.get_pos()
+        mouse_position = self._get_logical_mouse_pos()
 
         hovered = self.mode_back_button_rect.collidepoint(
             mouse_position
@@ -2100,6 +2422,15 @@ class EcoDropGame:
                 center=(400, 132),
             )
 
+        # Aviso de conquista desbloqueada nesta partida.
+        if self.achievement_notice_timer > 0:
+            self._draw_text(
+                self.achievement_notice,
+                self.font_small,
+                (245, 195, 80),
+                center=(400, 153),
+            )
+
         # Destaque da coluna selecionada.
         lane_x = self.lane_centers[
             self.current_lane
@@ -2223,7 +2554,7 @@ class EcoDropGame:
             center=(400, 235),
         )
 
-        mouse_position = pygame.mouse.get_pos()
+        mouse_position = self._get_logical_mouse_pos()
         correct_index = self.current_question["correct_index"]
 
         for index, (option, option_rect) in enumerate(zip(
@@ -2368,7 +2699,15 @@ class EcoDropGame:
             center=(400, 385),
         )
 
-        mouse_position = pygame.mouse.get_pos()
+        if self.quiz_new_achievement:
+            self._draw_text(
+                "NOVA CONQUISTA DESBLOQUEADA: ESPECIALISTA EM ELETRÔNICOS!",
+                self.font_small,
+                (245, 195, 80),
+                center=(400, 420),
+            )
+
+        mouse_position = self._get_logical_mouse_pos()
         hovered = self.quiz_result_button_rect.collidepoint(mouse_position)
         button_color = (39, 82, 76) if hovered else (24, 58, 56)
 
@@ -2473,7 +2812,7 @@ class EcoDropGame:
         )
 
         if self.selected_mode == MODE_ELECTRONIC:
-            mouse_position = pygame.mouse.get_pos()
+            mouse_position = self._get_logical_mouse_pos()
             hovered = self.quiz_start_button_rect.collidepoint(mouse_position)
             button_color = (34, 78, 88) if hovered else (22, 53, 68)
 
@@ -2528,6 +2867,10 @@ class EcoDropGame:
 
             self._draw_mode_select()
 
+        elif self.state == self.ACHIEVEMENTS:
+
+            self._draw_achievements()
+
         elif self.state == self.EWASTE_PREVIEW:
 
             self._draw_ewaste_preview()
@@ -2559,7 +2902,7 @@ class EcoDropGame:
                 self.screen
             )
 
-        pygame.display.flip()
+        self._present_frame()
 
         # ==================================================
         # LOOP PRINCIPAL
