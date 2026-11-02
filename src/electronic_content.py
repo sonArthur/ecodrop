@@ -6,12 +6,19 @@ Este módulo centraliza:
 - Equipamentos e resíduos disponíveis.
 - Categoria correta de cada item.
 - Explicações educativas.
+
+Cada categoria possui 8 itens para manter a distribuição
+equilibrada durante as partidas.
 """
 
 
 # ==================================================
 # CATEGORIAS DE DESTINAÇÃO
 # ==================================================
+
+# IMPORTANTE:
+# Os identificadores internos foram preservados para
+# manter a compatibilidade com o restante do jogo.
 
 ELECTRONIC_CATEGORIES = [
     (
@@ -42,7 +49,10 @@ ELECTRONIC_CATEGORIES = [
 # ==================================================
 
 # Cada item possui:
-# nome, categoria e explicação educativa.
+# 1. Nome apresentado ao jogador.
+# 2. Categoria correta.
+# 3. Explicação educativa apresentada durante a partida.
+
 
 ELECTRONIC_ITEMS = [
 
@@ -63,6 +73,49 @@ ELECTRONIC_ITEMS = [
         "Equipamentos em boas condições podem ganhar "
         "uma nova vida por meio do reaproveitamento.",
     ),
+
+    (
+        "Teclado funcionando",
+        "reutilizar",
+        "Um teclado em boas condições pode continuar "
+        "sendo utilizado ou ser doado.",
+    ),
+
+    (
+        "Mouse funcionando",
+        "reutilizar",
+        "Periféricos funcionais podem ser reaproveitados "
+        "por outras pessoas.",
+    ),
+
+    (
+        "Monitor funcionando",
+        "reutilizar",
+        "Um monitor em boas condições pode continuar "
+        "sendo utilizado por bastante tempo.",
+    ),
+
+    (
+        "Carregador funcionando",
+        "reutilizar",
+        "Carregadores em boas condições podem ser "
+        "reutilizados quando forem compatíveis com o aparelho.",
+    ),
+
+    (
+        "Cabo USB funcionando",
+        "reutilizar",
+        "Cabos em boas condições podem continuar "
+        "sendo utilizados ou doados.",
+    ),
+
+    (
+        "Tablet funcionando",
+        "reutilizar",
+        "Tablets funcionais podem ser reutilizados, "
+        "doados ou encaminhados para reaproveitamento.",
+    ),
+
 
     # ----------------------------------------------
     # REPARO
@@ -89,36 +142,72 @@ ELECTRONIC_ITEMS = [
         "pode voltar a funcionar.",
     ),
 
+    (
+        "Celular com tela quebrada",
+        "reparar",
+        "Uma assistência técnica pode avaliar a "
+        "possibilidade de substituição da tela.",
+    ),
+
+    (
+        "Mouse com falhas",
+        "reparar",
+        "Um periférico com defeito pode ter componentes "
+        "que permitem seu reparo.",
+    ),
+
+    (
+        "Carregador com falha reparável",
+        "reparar",
+        "Uma avaliação especializada pode determinar "
+        "se existe possibilidade segura de reparo.",
+    ),
+
+    (
+        "Impressora com falha reparável",
+        "reparar",
+        "Antes de descartar uma impressora, avalie "
+        "se o defeito pode ser corrigido.",
+    ),
+
+    (
+        "Roteador com falha reparável",
+        "reparar",
+        "Equipamentos de rede podem ter sua vida útil "
+        "prolongada por meio de reparos.",
+    ),
+
+
     # ----------------------------------------------
-    # COLETA DE ELETRÔNICOS
+    # COLETA DE RESÍDUOS ELETRÔNICOS
     # ----------------------------------------------
 
     (
-        "Mouse sem funcionar",
+        "Mouse sem conserto",
         "eletronicos",
-        "Periféricos sem possibilidade de uso devem "
-        "ser encaminhados à coleta de eletrônicos.",
+        "Quando não existe possibilidade viável de reparo, "
+        "o mouse deve ser encaminhado à coleta de eletrônicos.",
     ),
 
     (
         "Monitor sem reparo",
         "eletronicos",
-        "Monitores devem seguir o sistema de "
-        "logística reversa de eletroeletrônicos.",
+        "Monitores sem possibilidade de recuperação devem "
+        "seguir o sistema de coleta de eletroeletrônicos.",
     ),
 
     (
-        "Carregador danificado",
+        "Carregador sem conserto",
         "eletronicos",
-        "Carregadores devem ser entregues em pontos "
-        "de recebimento de eletroeletrônicos.",
+        "Carregadores sem possibilidade de reaproveitamento "
+        "devem ser entregues em pontos de coleta apropriados.",
     ),
 
     (
-        "Cabo USB sem uso",
+        "Cabo USB sem conserto",
         "eletronicos",
-        "Cabos e acessórios também fazem parte dos "
-        "resíduos eletroeletrônicos.",
+        "Cabos danificados que não podem ser recuperados "
+        "também fazem parte dos resíduos eletrônicos.",
     ),
 
     (
@@ -127,6 +216,28 @@ ELECTRONIC_ITEMS = [
         "Componentes eletrônicos devem receber "
         "destinação ambientalmente adequada.",
     ),
+
+    (
+        "Celular sem conserto",
+        "eletronicos",
+        "Celulares sem possibilidade de recuperação devem "
+        "ser encaminhados à logística reversa.",
+    ),
+
+    (
+        "Notebook sem conserto",
+        "eletronicos",
+        "Notebooks sem possibilidade de reaproveitamento "
+        "devem ser encaminhados à coleta especializada.",
+    ),
+
+    (
+        "Teclado sem conserto",
+        "eletronicos",
+        "Teclados sem condições de reparo devem receber "
+        "destinação adequada como resíduos eletrônicos.",
+    ),
+
 
     # ----------------------------------------------
     # PILHAS E BATERIAS
@@ -140,9 +251,23 @@ ELECTRONIC_ITEMS = [
     ),
 
     (
+        "Pilha AAA usada",
+        "pilhas_baterias",
+        "Pilhas AAA também precisam de destinação "
+        "adequada e não devem ir para o lixo comum.",
+    ),
+
+    (
+        "Pilha botão usada",
+        "pilhas_baterias",
+        "Pilhas pequenas utilizadas em relógios e "
+        "outros equipamentos precisam de coleta específica.",
+    ),
+
+    (
         "Bateria de celular usada",
         "pilhas_baterias",
-        "Baterias devem seguir os sistemas "
+        "Baterias de celulares devem seguir os sistemas "
         "específicos de recebimento e destinação.",
     ),
 
@@ -152,6 +277,27 @@ ELECTRONIC_ITEMS = [
         "Baterias de notebooks também precisam "
         "de destinação apropriada.",
     ),
+
+    (
+        "Bateria recarregável usada",
+        "pilhas_baterias",
+        "Baterias recarregáveis devem ser encaminhadas "
+        "a pontos de coleta apropriados.",
+    ),
+
+    (
+        "Bateria de tablet usada",
+        "pilhas_baterias",
+        "Baterias de tablets devem ser destinadas "
+        "por meio de sistemas adequados de coleta.",
+    ),
+
+    (
+        "Bateria externa usada (power bank)",
+        "pilhas_baterias",
+        "Power banks possuem baterias internas e devem "
+        "ser encaminhados a pontos de recebimento adequados.",
+    ),
 ]
 
 
@@ -159,8 +305,15 @@ ELECTRONIC_ITEMS = [
 # DADOS PARA O SISTEMA DO JOGO
 # ==================================================
 
-# O WasteItem utiliza somente nome e categoria.
-# Por isso, criamos uma lista no formato esperado.
+# O WasteItem e o game.py utilizam somente:
+# nome e categoria.
+#
+# Por isso, transformamos os dados acima no formato:
+#
+# (nome, categoria)
+#
+# Mantemos a mesma estrutura utilizada anteriormente
+# para não precisar modificar o game.py.
 
 ELECTRONIC_WASTE_TYPES = [
     (name, category)
@@ -172,6 +325,8 @@ ELECTRONIC_WASTE_TYPES = [
 # DICAS EDUCATIVAS
 # ==================================================
 
+# Relaciona o nome de cada item à sua explicação.
+
 ELECTRONIC_TIPS = {
     name: tip
     for name, category, tip in ELECTRONIC_ITEMS
@@ -180,10 +335,14 @@ ELECTRONIC_TIPS = {
 
 def get_electronic_tip(item_name: str) -> str:
     """
-    Retorna a explicação educativa de um item.
+    Retorna a explicação educativa correspondente ao item.
 
-    Caso o nome não seja encontrado, retorna
-    uma mensagem genérica.
+    Parâmetro:
+        item_name: nome do resíduo apresentado no jogo.
+
+    Retorno:
+        Explicação educativa ou mensagem genérica
+        caso o item não seja encontrado.
     """
 
     return ELECTRONIC_TIPS.get(
