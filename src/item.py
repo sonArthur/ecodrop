@@ -813,6 +813,169 @@ class WasteItem:
             pygame.draw.line(surface, (193, 174, 105), (24, 32), (24, 40), 2)
 
         # ----------------------------------------------
+        # TABLET
+        # ----------------------------------------------
+
+        elif name.startswith("tablet"):
+
+            # Moldura externa do tablet.
+            pygame.draw.rect(
+                surface,
+                (39, 49, 62),
+                (8, 5, 32, 44),
+                border_radius=5,
+            )
+
+            # Tela.
+            pygame.draw.rect(
+                surface,
+                (91, 169, 184),
+                (11, 9, 26, 35),
+                border_radius=2,
+            )
+
+            # Reflexo da tela e botão inferior.
+            pygame.draw.line(
+                surface,
+                (190, 224, 225),
+                (15, 13),
+                (31, 13),
+                1,
+            )
+            pygame.draw.circle(
+                surface,
+                (218, 228, 230),
+                (24, 46),
+                1,
+            )
+
+        # ----------------------------------------------
+        # IMPRESSORA
+        # ----------------------------------------------
+
+        elif name.startswith("impressora"):
+
+            # Corpo principal.
+            pygame.draw.rect(
+                surface,
+                (91, 105, 117),
+                (6, 17, 38, 27),
+                border_radius=4,
+            )
+
+            # Tampa superior e painel frontal.
+            pygame.draw.rect(
+                surface,
+                (157, 171, 179),
+                (10, 12, 30, 10),
+                border_radius=3,
+            )
+            pygame.draw.rect(
+                surface,
+                (39, 57, 69),
+                (14, 25, 22, 11),
+                border_radius=2,
+            )
+
+            # Folha saindo da impressora.
+            pygame.draw.rect(
+                surface,
+                (238, 239, 230),
+                (17, 34, 16, 12),
+                border_radius=1,
+            )
+            pygame.draw.line(
+                surface,
+                (120, 137, 145),
+                (20, 38),
+                (30, 38),
+                1,
+            )
+
+            # Indicador.
+            pygame.draw.circle(
+                surface,
+                (91, 204, 145),
+                (37, 26),
+                2,
+            )
+
+        # ----------------------------------------------
+        # ROTEADOR
+        # ----------------------------------------------
+
+        elif name.startswith("roteador"):
+
+            # Antenas.
+            pygame.draw.line(
+                surface,
+                (174, 188, 194),
+                (13, 23),
+                (10, 7),
+                3,
+            )
+            pygame.draw.line(
+                surface,
+                (174, 188, 194),
+                (35, 23),
+                (38, 7),
+                3,
+            )
+
+            # Corpo do roteador.
+            pygame.draw.rect(
+                surface,
+                (66, 83, 98),
+                (7, 21, 36, 20),
+                border_radius=5,
+            )
+
+            # Luzes de conexão.
+            for light_x in (15, 22, 29, 36):
+                pygame.draw.circle(
+                    surface,
+                    (91, 204, 145),
+                    (light_x, 35),
+                    2,
+                )
+
+        # ----------------------------------------------
+        # BATERIA EXTERNA (POWER BANK)
+        # ----------------------------------------------
+
+        elif name.startswith("bateria externa"):
+
+            pygame.draw.rect(
+                surface,
+                (54, 69, 83),
+                (10, 7, 28, 42),
+                border_radius=5,
+            )
+            pygame.draw.rect(
+                surface,
+                (87, 163, 178),
+                (14, 12, 20, 30),
+                border_radius=3,
+            )
+
+            # Indicadores de carga.
+            for dot_x in (19, 24, 29):
+                pygame.draw.circle(
+                    surface,
+                    (111, 218, 155),
+                    (dot_x, 36),
+                    1,
+                )
+
+            # Porta USB.
+            pygame.draw.rect(
+                surface,
+                (213, 220, 221),
+                (18, 8, 12, 3),
+                border_radius=1,
+            )
+
+        # ----------------------------------------------
         # PILHA E BATERIAS
         # ----------------------------------------------
 
