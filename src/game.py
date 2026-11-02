@@ -1,3 +1,5 @@
+
+import math
 import random
 import pygame
 
@@ -677,8 +679,12 @@ class EcoDropGame:
         self.current_lane = 2
         self.spawn_timer = 0
 
-        # Feedback visual.
-        self.feedback_text = ""
+        # Feedback visual da última classificação.
+        # O título e os detalhes são exibidos em um painel próprio,
+        # com quebra de linha para manter as dicas legíveis.
+        self.feedback_title = ""
+        self.feedback_detail = ""
+        self.feedback_text = ""  # Mantido para compatibilidade interna.
         self.feedback_color = self.WHITE
         self.feedback_timer = 0
 
@@ -914,7 +920,8 @@ class EcoDropGame:
             name=name,
             category=category,
             x=lane_x,
-            y=175,
+            # Reserva a faixa superior para o painel de feedback.
+            y=205,
             fall_speed=self.fall_speed,
             width=item_width,
             height=item_height,
@@ -1431,6 +1438,9 @@ class EcoDropGame:
 
             if self.feedback_timer == 0:
                 self.highlighted_bins.clear()
+                self.feedback_title = ""
+                self.feedback_detail = ""
+                self.feedback_text = ""
 
         # A queda só acontece durante a partida.
         if self.state != self.PLAYING:
@@ -1520,13 +1530,22 @@ class EcoDropGame:
             else:
                 education_tip = get_education_tip(item.name)
 
+            self.feedback_title = f"ACERTOU! +{points} PONTOS"
+
             if self.show_education_tips:
-                self.feedback_text = (
-                    f"Correto! +{points} | {education_tip}"
+                self.feedback_detail = (
+                    f"Destino correto: {target_bin.label}. {education_tip}"
                 )
             else:
-                self.feedback_text = f"Correto! +{points} pontos."
+                self.feedback_detail = (
+                    f"Destino correto: {target_bin.label}."
+                )
 
+            # Mantém o texto consolidado para facilitar diagnósticos
+            # e preservar a compatibilidade com eventuais extensões.
+            self.feedback_text = (
+                f"{self.feedback_title} | {self.feedback_detail}"
+            )
             self.feedback_color = self.GREEN
 
             self.audio.play_correct()
@@ -1546,11 +1565,27 @@ class EcoDropGame:
 
             self.combo = 0
 
-            self.feedback_text = (
-                f"Incorreto! {item.name} vai em "
-                f"{correct_bin.label}."
-            )
+            self.feedback_title = "CLASSIFICAÇÃO INCORRETA"
 
+            # Também apresenta uma explicação no erro, para que o jogador
+            # entenda a destinação correta e aprenda com a tentativa.
+            if self.selected_mode == MODE_ELECTRONIC:
+                education_tip = get_electronic_tip(item.name)
+            else:
+                education_tip = get_education_tip(item.name)
+
+            if self.show_education_tips:
+                self.feedback_detail = (
+                    f"Destino correto: {correct_bin.label}. {education_tip}"
+                )
+            else:
+                self.feedback_detail = (
+                    f"Destino correto: {correct_bin.label}."
+                )
+
+            self.feedback_text = (
+                f"{self.feedback_title} | {self.feedback_detail}"
+            )
             self.feedback_color = self.RED
 
             # Evitar sobrepor os sons no fim de jogo.
@@ -2726,14 +2761,91 @@ class EcoDropGame:
             center=(400, 105),
         )
 
-        # Feedback de acertos e erros.
+        # Painel de feedback de acertos e erros.
+        # A faixa possui fundo próprio e borda colorida para que o resultado
+        # seja identificado rapidamente, sem depender apenas do texto.
         if self.feedback_timer > 0:
+            feedback_panel = pygame.Surface(
+                (752, 56),
+                pygame.SRCALPHA,
+            )
+
+            pygame.draw.rect(
+                feedback_panel,
+                (8, 18, 30, 238),
+                feedback_panel.get_rect(),
+                border_radius=12,
+            )
+            pygame.draw.rect(
+                feedback_panel,
+                (*self.feedback_color, 230),
+                feedback_panel.get_rect(),
+                width=2,
+                border_radius=12,
+            )
+
+            self.screen.blit(
+                feedback_panel,
+                (24, 116),
+            )
+
+            # Símbolo visual: marca para acerto e X para erro.
+            icon_center = (51, 144)
+            pygame.draw.circle(
+                self.screen,
+                self.feedback_color,
+                icon_center,
+                12,
+            )
+
+            if self.feedback_color == self.GREEN:
+                pygame.draw.line(
+                    self.screen,
+                    (8, 25, 24),
+                    (45, 144),
+                    (50, 149),
+                    3,
+                )
+                pygame.draw.line(
+                    self.screen,
+                    (8, 25, 24),
+                    (50, 149),
+                    (58, 138),
+                    3,
+                )
+            else:
+                pygame.draw.line(
+                    self.screen,
+                    (45, 12, 18),
+                    (46, 139),
+                    (56, 149),
+                    3,
+                )
+                pygame.draw.line(
+                    self.screen,
+                    (45, 12, 18),
+                    (56, 139),
+                    (46, 149),
+                    3,
+                )
 
             self._draw_text(
-                self.feedback_text,
-                self.font_small,
+                self.feedback_title,
+                self.font_normal,
                 self.feedback_color,
-                center=(400, 132),
+                center=(400, 128),
+            )
+
+            # A dica é quebrada em até duas linhas para não ultrapassar
+            # os limites da janela nem ficar escondida nas laterais.
+            self._draw_wrapped_text(
+                self.feedback_detail,
+                self.font_small,
+                self.WHITE,
+                center=(400, 153),
+                max_width=700,
+                line_spacing=15,
+                max_lines=2,
             )
 
         # Aviso de conquista desbloqueada nesta partida.
@@ -2742,7 +2854,7 @@ class EcoDropGame:
                 self.achievement_notice,
                 self.font_small,
                 (245, 195, 80),
-                center=(400, 153),
+                center=(400, 580),
             )
 
         # Destaque da coluna selecionada.
@@ -2794,23 +2906,36 @@ class EcoDropGame:
                 self.font_bin,
             )
 
-        # Contornos de acerto e erro.
-        for lane_index, highlight_color in (
-            self.highlighted_bins.items()
-        ):
+        # Destaque animado das lixeiras envolvidas na classificação.
+        # No erro, a lixeira incorreta fica vermelha e a correta verde.
+        pulse = 4 + round(2 * (0.5 + 0.5 * math.sin(
+            (120 - self.feedback_timer) * 0.22
+        )))
 
+        for lane_index, highlight_color in self.highlighted_bins.items():
             bin_rect = self.bins[lane_index].rect
+            highlight_rect = bin_rect.inflate(10, 10)
 
-            highlight_rect = bin_rect.inflate(
-                10,
-                10,
+            tint_surface = pygame.Surface(
+                highlight_rect.size,
+                pygame.SRCALPHA,
+            )
+            pygame.draw.rect(
+                tint_surface,
+                (*highlight_color, 34),
+                tint_surface.get_rect(),
+                border_radius=15,
+            )
+            self.screen.blit(
+                tint_surface,
+                highlight_rect.topleft,
             )
 
             pygame.draw.rect(
                 self.screen,
                 highlight_color,
                 highlight_rect,
-                width=4,
+                width=pulse,
                 border_radius=15,
             )
 
@@ -2818,7 +2943,7 @@ class EcoDropGame:
             "ESC: voltar ao menu",
             self.font_small,
             self.GRAY,
-            center=(400, 583),
+            topleft=(24, 573),
         )
 
         # ==================================================
