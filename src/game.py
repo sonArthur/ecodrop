@@ -14,6 +14,7 @@ from src.electronic_content import (
 from src.item import WasteItem
 from src.modes import GAME_MODES, MODE_ELECTRONIC, MODE_GENERAL
 from src.records import RecordManager
+from src.settings_manager import SettingsManager
 from src.quiz_content import QUIZ_QUESTIONS
 
 class EcoDropGame:
@@ -40,6 +41,7 @@ class EcoDropGame:
     QUIZ = "quiz"
     QUIZ_RESULT = "quiz_result"
     ACHIEVEMENTS = "achievements"
+    SETTINGS = "settings"
 
     WIDTH = 800
     HEIGHT = 600
@@ -66,12 +68,24 @@ class EcoDropGame:
         # O jogo continua sendo desenhado em uma resolução lógica fixa;
         # no final de cada quadro, essa superfície é ampliada para caber
         # na janela sem distorcer os elementos.
-        self.fullscreen = False
+        self.settings_manager = SettingsManager()
+        self.settings_data = self.settings_manager.load()
+
+        self.fullscreen = bool(self.settings_data["fullscreen"])
         self.windowed_size = self._get_initial_window_size()
-        self.window = pygame.display.set_mode(
-            self.windowed_size,
-            pygame.RESIZABLE,
-        )
+
+        if self.fullscreen:
+            self.window = pygame.display.set_mode(
+                (0, 0),
+                pygame.FULLSCREEN,
+            )
+        else:
+            self.window = pygame.display.set_mode(
+                self.windowed_size,
+                pygame.RESIZABLE,
+            )
+
+        self.dragging_volume = False
 
         # Superfície lógica utilizada por todas as telas e elementos do jogo.
         self.screen = pygame.Surface(
@@ -112,6 +126,10 @@ class EcoDropGame:
         # --------------------------------------------------
 
         self.audio = AudioManager()
+        self.show_education_tips = bool(
+            self.settings_data["show_education_tips"]
+        )
+        self._apply_audio_settings()
 
         # --------------------------------------------------
         # SISTEMA DE RECORDES
@@ -138,7 +156,28 @@ class EcoDropGame:
 
         # Abre a página de conquistas permanentes.
         self.achievements_button_rect = pygame.Rect(
-            285, 440, 230, 48
+            160, 440, 220, 48
+        )
+
+        self.settings_button_rect = pygame.Rect(
+            420, 440, 220, 48
+        )
+
+        # Controles da tela de configurações.
+        self.volume_slider_rect = pygame.Rect(
+            250, 205, 300, 30
+        )
+        self.sound_toggle_rect = pygame.Rect(
+            260, 280, 280, 48
+        )
+        self.tips_toggle_rect = pygame.Rect(
+            260, 350, 280, 48
+        )
+        self.fullscreen_toggle_rect = pygame.Rect(
+            260, 420, 280, 48
+        )
+        self.settings_back_button_rect = pygame.Rect(
+            300, 500, 200, 44
         )
 
         # ==============================================
@@ -372,6 +411,72 @@ class EcoDropGame:
             self.fullscreen = True
 
         self._update_viewport()
+        self.settings_data["fullscreen"] = self.fullscreen
+        self.settings_manager.save(self.settings_data)
+
+    def _apply_audio_settings(self) -> None:
+        """Aplica as preferências diretamente ao AudioManager.
+
+        O AudioManager controla o volume principal, preservando o volume-base
+        de cada efeito sonoro. O jogo não precisa percorrer os objetos internos
+        nem alterar pygame.mixer.Sound diretamente.
+        """
+
+        volume = max(
+            0,
+            min(100, int(self.settings_data.get("volume", 70))),
+        ) / 100.0
+
+        sound_enabled = bool(
+            self.settings_data.get("sound_enabled", True)
+        )
+
+        self.audio.set_volume(volume)
+        self.audio.set_enabled(sound_enabled)
+
+    def _set_audio_volume(self, volume: int, persist: bool = True) -> None:
+        """Atualiza o volume e reativa o áudio quando o volume fica acima de zero."""
+
+        normalized_volume = max(0, min(100, int(volume)))
+        self.settings_data["volume"] = normalized_volume
+
+        # Ao mover o controle para um valor audível, o jogador está
+        # explicitamente pedindo para ouvir novamente.
+        if normalized_volume > 0:
+            self.settings_data["sound_enabled"] = True
+
+        if persist:
+            self.settings_manager.save(self.settings_data)
+
+        self._apply_audio_settings()
+
+    def _set_audio_volume_from_mouse(
+        self,
+        mouse_x: int,
+        persist: bool = False,
+    ) -> None:
+        """Converte a posição horizontal do mouse em uma porcentagem de volume."""
+
+        relative_x = max(
+            0,
+            min(self.volume_slider_rect.width, mouse_x - self.volume_slider_rect.x),
+        )
+        volume = round(relative_x / self.volume_slider_rect.width * 100)
+        self._set_audio_volume(volume, persist=persist)
+
+    def _toggle_sound(self) -> None:
+        """Liga ou desliga os efeitos sonoros sem alterar o volume escolhido."""
+
+        self.settings_data["sound_enabled"] = not self.settings_data["sound_enabled"]
+        self.settings_manager.save(self.settings_data)
+        self._apply_audio_settings()
+
+    def _toggle_education_tips(self) -> None:
+        """Alterna a exibição das dicas educativas durante a partida."""
+
+        self.show_education_tips = not self.show_education_tips
+        self.settings_data["show_education_tips"] = self.show_education_tips
+        self.settings_manager.save(self.settings_data)
 
     def _present_frame(self) -> None:
         """Amplia a tela lógica para a janela sem deformar o jogo."""
@@ -895,6 +1000,23 @@ class EcoDropGame:
 
                 continue
 
+            # Arrastar o controle de volume na tela de configurações.
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                if self.dragging_volume:
+                    self.settings_manager.save(self.settings_data)
+                self.dragging_volume = False
+                continue
+
+            if event.type == pygame.MOUSEMOTION:
+                if self.state == self.SETTINGS and self.dragging_volume:
+                    logical_position = self._window_to_canvas(event.pos)
+                    if logical_position != (-1, -1):
+                        self._set_audio_volume_from_mouse(
+                            logical_position[0],
+                            persist=False,
+                        )
+                continue
+
             # ==============================================
             # CLIQUES DO MOUSE
             # ==============================================
@@ -910,6 +1032,28 @@ class EcoDropGame:
 
                 # Considera apenas o botão esquerdo.
                 if event.button == 1:
+
+                    # --------------------------------------
+                    # CONFIGURAÇÕES
+                    # --------------------------------------
+
+                    if self.state == self.SETTINGS:
+                        if self.volume_slider_rect.collidepoint(logical_mouse_pos):
+                            self.dragging_volume = True
+                            self._set_audio_volume_from_mouse(
+                                logical_mouse_pos[0],
+                                persist=False,
+                            )
+                        elif self.sound_toggle_rect.collidepoint(logical_mouse_pos):
+                            self._toggle_sound()
+                        elif self.tips_toggle_rect.collidepoint(logical_mouse_pos):
+                            self._toggle_education_tips()
+                        elif self.fullscreen_toggle_rect.collidepoint(logical_mouse_pos):
+                            self._toggle_fullscreen()
+                        elif self.settings_back_button_rect.collidepoint(logical_mouse_pos):
+                            self.dragging_volume = False
+                            self.state = self.MENU
+                        continue
 
                     # --------------------------------------
                     # MENU PRINCIPAL
@@ -934,6 +1078,10 @@ class EcoDropGame:
                         # Consultar conquistas acumuladas.
                         elif self.achievements_button_rect.collidepoint(logical_mouse_pos):
                             self.state = self.ACHIEVEMENTS
+
+                        # Abrir as preferências do jogador.
+                        elif self.settings_button_rect.collidepoint(logical_mouse_pos):
+                            self.state = self.SETTINGS
 
                     # --------------------------------------
                     # PÁGINA DE CONQUISTAS
@@ -1031,10 +1179,31 @@ class EcoDropGame:
                 continue
 
             # ----------------------------------------------
+            # CONFIGURAÇÕES
+            # ----------------------------------------------
+
+            if self.state == self.SETTINGS:
+                if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                    if self.dragging_volume:
+                        self.settings_manager.save(self.settings_data)
+                    self.dragging_volume = False
+                    self.state = self.MENU
+                elif event.key == pygame.K_LEFT:
+                    self._set_audio_volume(self.settings_data["volume"] - 5)
+                elif event.key == pygame.K_RIGHT:
+                    self._set_audio_volume(self.settings_data["volume"] + 5)
+                elif event.key == pygame.K_m:
+                    self._toggle_sound()
+                elif event.key == pygame.K_t:
+                    self._toggle_education_tips()
+                elif event.key == pygame.K_f:
+                    self._toggle_fullscreen()
+
+            # ----------------------------------------------
             # MENU PRINCIPAL
             # ----------------------------------------------
 
-            if self.state == self.MENU:
+            elif self.state == self.MENU:
 
                 # Enter ou Espaço abre a seleção de modos.
                 if event.key in (
@@ -1054,6 +1223,9 @@ class EcoDropGame:
 
                 elif event.key == pygame.K_c:
                     self.state = self.ACHIEVEMENTS
+
+                elif event.key == pygame.K_s:
+                    self.state = self.SETTINGS
 
             # ----------------------------------------------
             # CONQUISTAS
@@ -1348,9 +1520,12 @@ class EcoDropGame:
             else:
                 education_tip = get_education_tip(item.name)
 
-            self.feedback_text = (
-                f"Correto! +{points} | {education_tip}"
-            )
+            if self.show_education_tips:
+                self.feedback_text = (
+                    f"Correto! +{points} | {education_tip}"
+                )
+            else:
+                self.feedback_text = f"Correto! +{points} pontos."
 
             self.feedback_color = self.GREEN
 
@@ -1643,6 +1818,13 @@ class EcoDropGame:
             border_color=(225, 170, 45),
         )
 
+        self._draw_menu_button(
+            rect=self.settings_button_rect,
+            label="CONFIGURAÇÕES",
+            hovered=self.settings_button_rect.collidepoint(mouse_position),
+            border_color=(49, 130, 206),
+        )
+
         self._draw_text(
             "Clique em um botão ou use o teclado",
             self.font_small,
@@ -1651,7 +1833,7 @@ class EcoDropGame:
         )
 
         self._draw_text(
-            "ENTER: jogar | I: instruções | C: conquistas | F11: tela cheia",
+            "ENTER: jogar | I: instruções | C: conquistas | S: configurações | F11: tela cheia",
             self.font_small,
             self.GREEN,
             center=(400, 535),
@@ -1665,6 +1847,138 @@ class EcoDropGame:
         )
 
         # ==================================================
+    # CONFIGURAÇÕES
+    # ==================================================
+
+    def _draw_settings(self) -> None:
+        """Desenha a tela de preferências de áudio e experiência."""
+
+        self.screen.blit(self.background_surface, (0, 0))
+
+        self._draw_text(
+            "CONFIGURAÇÕES",
+            self.font_title,
+            self.GREEN,
+            center=(400, 75),
+        )
+        self._draw_text(
+            "Personalize sua experiência no EcoDrop",
+            self.font_subtitle,
+            self.WHITE,
+            center=(400, 125),
+        )
+
+        # Volume geral dos efeitos sonoros.
+        self._draw_text(
+            f"VOLUME DOS EFEITOS SONOROS: {self.settings_data['volume']}%",
+            self.font_normal,
+            self.WHITE,
+            center=(400, 180),
+        )
+
+        track_y = self.volume_slider_rect.centery
+        pygame.draw.rect(
+            self.screen,
+            (48, 66, 80),
+            pygame.Rect(
+                self.volume_slider_rect.x,
+                track_y - 5,
+                self.volume_slider_rect.width,
+                10,
+            ),
+            border_radius=6,
+        )
+
+        fill_width = round(
+            self.volume_slider_rect.width * self.settings_data['volume'] / 100
+        )
+        if fill_width > 0:
+            pygame.draw.rect(
+                self.screen,
+                self.GREEN,
+                pygame.Rect(
+                    self.volume_slider_rect.x,
+                    track_y - 5,
+                    fill_width,
+                    10,
+                ),
+                border_radius=6,
+            )
+
+        knob_x = self.volume_slider_rect.x + fill_width
+        pygame.draw.circle(
+            self.screen,
+            self.WHITE,
+            (knob_x, track_y),
+            11,
+        )
+        pygame.draw.circle(
+            self.screen,
+            self.GREEN,
+            (knob_x, track_y),
+            6,
+        )
+
+        self._draw_text(
+            "Arraste o controle ou use as setas esquerda/direita",
+            self.font_small,
+            self.GRAY,
+            center=(400, 245),
+        )
+
+        mouse_position = self._get_logical_mouse_pos()
+
+        sound_label = (
+            "SOM: LIGADO"
+            if self.settings_data["sound_enabled"]
+            else "SOM: DESLIGADO"
+        )
+        self._draw_menu_button(
+            self.sound_toggle_rect,
+            sound_label,
+            self.sound_toggle_rect.collidepoint(mouse_position),
+            self.GREEN if self.settings_data["sound_enabled"] else self.RED,
+        )
+
+        tips_label = (
+            "DICAS EDUCATIVAS: LIGADAS"
+            if self.show_education_tips
+            else "DICAS EDUCATIVAS: DESLIGADAS"
+        )
+        self._draw_menu_button(
+            self.tips_toggle_rect,
+            tips_label,
+            self.tips_toggle_rect.collidepoint(mouse_position),
+            (49, 130, 206),
+        )
+
+        fullscreen_label = (
+            "MODO DE EXIBIÇÃO: TELA CHEIA"
+            if self.fullscreen
+            else "MODO DE EXIBIÇÃO: JANELA"
+        )
+        self._draw_menu_button(
+            self.fullscreen_toggle_rect,
+            fullscreen_label,
+            self.fullscreen_toggle_rect.collidepoint(mouse_position),
+            (225, 170, 45),
+        )
+
+        self._draw_menu_button(
+            self.settings_back_button_rect,
+            "VOLTAR AO MENU",
+            self.settings_back_button_rect.collidepoint(mouse_position),
+            self.GRAY,
+        )
+
+        self._draw_text(
+            "M: som | T: dicas | F: tela cheia | ESC: voltar",
+            self.font_small,
+            self.GRAY,
+            center=(400, 570),
+        )
+
+    # ==================================================
     # CONQUISTAS
     # ==================================================
 
@@ -2870,6 +3184,10 @@ class EcoDropGame:
         elif self.state == self.ACHIEVEMENTS:
 
             self._draw_achievements()
+
+        elif self.state == self.SETTINGS:
+
+            self._draw_settings()
 
         elif self.state == self.EWASTE_PREVIEW:
 

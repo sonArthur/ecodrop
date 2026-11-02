@@ -1,47 +1,44 @@
-import pygame
+"""
+Gerenciador centralizado dos efeitos sonoros do EcoDrop.
+
+O volume principal é multiplicado pelo volume-base de cada efeito.
+Assim, ajustar ou silenciar o áudio não apaga as diferenças de intensidade
+definidas para cada som.
+"""
 
 from pathlib import Path
 
+import pygame
+
 
 class AudioManager:
-    """
-    Gerencia os efeitos sonoros do EcoDrop.
+    """Carrega, controla e reproduz os efeitos sonoros do jogo."""
 
-    Responsabilidades:
-    - Inicializar o mixer quando necessário.
-    - Carregar os efeitos sonoros.
-    - Reproduzir cada som conforme o evento.
-    - Permitir que o jogo continue funcionando
-      caso o áudio não esteja disponível.
-    """
+    BASE_VOLUMES = {
+        "start": 0.35,
+        "correct": 0.45,
+        "error": 0.40,
+        "game_over": 0.45,
+    }
+
+    SOUND_FILES = {
+        "start": "inicio.wav",
+        "correct": "acerto.wav",
+        "error": "erro.wav",
+        "game_over": "fim_de_jogo.wav",
+    }
 
     def __init__(self) -> None:
+        self.sounds: dict[str, pygame.mixer.Sound] = {}
+        self.enabled = True
+        self.master_volume = 1.0
+        self.available = False
 
-        self.sounds = {}
-
-        self.enabled = False
-
-        # Caminho absoluto para os arquivos de áudio.
         project_root = Path(__file__).resolve().parent.parent
-
-        sounds_dir = (
-            project_root
-            / "assets"
-            / "sounds"
-        )
-
-        sound_files = {
-            "start": "inicio.wav",
-            "correct": "acerto.wav",
-            "error": "erro.wav",
-            "game_over": "fim_de_jogo.wav",
-        }
+        sounds_dir = project_root / "assets" / "sounds"
 
         try:
-
-            # Inicializa o mixer somente se necessário.
             if pygame.mixer.get_init() is None:
-
                 pygame.mixer.init(
                     frequency=22050,
                     size=-16,
@@ -49,73 +46,73 @@ class AudioManager:
                     buffer=512,
                 )
 
-            # Carrega os arquivos de áudio.
-            for sound_name, filename in sound_files.items():
-
+            for sound_name, filename in self.SOUND_FILES.items():
                 sound_path = sounds_dir / filename
-
-                sound = pygame.mixer.Sound(
+                self.sounds[sound_name] = pygame.mixer.Sound(
                     str(sound_path)
                 )
 
-                # Ajusta o volume individualmente.
-                if sound_name == "start":
-                    sound.set_volume(0.35)
-
-                elif sound_name == "correct":
-                    sound.set_volume(0.45)
-
-                elif sound_name == "error":
-                    sound.set_volume(0.40)
-
-                elif sound_name == "game_over":
-                    sound.set_volume(0.45)
-
-                self.sounds[sound_name] = sound
-
-            self.enabled = True
+            self.available = True
+            self._apply_volume()
 
         except (pygame.error, OSError) as error:
-
-            # A ausência de áudio não deve impedir o jogo.
             self.sounds.clear()
-
-            self.enabled = False
-
+            self.available = False
             print(
                 "Aviso: os efeitos sonoros não puderam "
                 f"ser carregados: {error}"
             )
 
-    def play(self, sound_name: str) -> None:
-        """
-        Reproduz um efeito sonoro pelo identificador.
-        """
+    def _apply_volume(self) -> None:
+        """Aplica volume principal × volume-base em cada efeito."""
 
-        if not self.enabled:
+        effective_master = (
+            self.master_volume
+            if self.enabled and self.available
+            else 0.0
+        )
+
+        for sound_name, sound in self.sounds.items():
+            base_volume = self.BASE_VOLUMES.get(sound_name, 1.0)
+            sound.set_volume(
+                max(0.0, min(1.0, base_volume * effective_master))
+            )
+
+    def set_volume(self, volume: float) -> None:
+        """Define o volume principal no intervalo de 0.0 a 1.0."""
+
+        try:
+            normalized = float(volume)
+        except (TypeError, ValueError):
+            normalized = self.master_volume
+
+        self.master_volume = max(0.0, min(1.0, normalized))
+        self._apply_volume()
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Liga ou desliga os efeitos sem alterar o volume escolhido."""
+
+        self.enabled = bool(enabled) and self.available
+        self._apply_volume()
+
+    def play(self, sound_name: str) -> None:
+        """Reproduz um efeito se o áudio estiver habilitado e disponível."""
+
+        if not self.available or not self.enabled or self.master_volume <= 0:
             return
 
         sound = self.sounds.get(sound_name)
-
         if sound is not None:
             sound.play()
 
     def play_start(self) -> None:
-        """Reproduz o som de início da partida."""
-
         self.play("start")
 
     def play_correct(self) -> None:
-        """Reproduz o som de acerto."""
-
         self.play("correct")
 
     def play_error(self) -> None:
-        """Reproduz o som de erro."""
-
         self.play("error")
 
     def play_game_over(self) -> None:
-        """Reproduz o som de fim de jogo."""
-
         self.play("game_over")
