@@ -1,4 +1,3 @@
-
 import math
 import random
 import pygame
@@ -48,6 +47,19 @@ class EcoDropGame:
     WIDTH = 800
     HEIGHT = 600
     FPS = 60
+
+    # Progressão de dificuldade.
+    # A cada cinco resíduos classificados, o nível aumenta.
+    ITEMS_PER_LEVEL = 5
+    INITIAL_FALL_SPEED = 2.8
+    FALL_SPEED_PER_LEVEL = 0.18
+    MAX_FALL_SPEED = 4.6
+
+    # Intervalo, em quadros, antes de criar o próximo resíduo.
+    # Como o jogo roda a 60 FPS, 52 quadros equivalem a cerca de 0,87 s.
+    INITIAL_SPAWN_INTERVAL = 52
+    SPAWN_INTERVAL_REDUCTION = 2
+    MIN_SPAWN_INTERVAL = 36
 
     BACKGROUND = (10, 20, 35)
     GREEN = (52, 211, 153)
@@ -670,7 +682,9 @@ class EcoDropGame:
         self.items_processed = 0
         self.level = 1
 
-        self.fall_speed = 2.8
+        # A dificuldade sempre começa igual em uma nova partida.
+        self.fall_speed = self.INITIAL_FALL_SPEED
+        self.spawn_interval = self.INITIAL_SPAWN_INTERVAL
 
         # Resíduos.
         self.current_item = None
@@ -1451,7 +1465,7 @@ class EcoDropGame:
 
             self.spawn_timer += 1
 
-            if self.spawn_timer >= 45:
+            if self.spawn_timer >= self.spawn_interval:
                 self._spawn_item()
 
             return
@@ -1469,6 +1483,30 @@ class EcoDropGame:
         # ==================================================
         # CLASSIFICAR RESÍDUOS
         # ==================================================
+
+    def _update_difficulty(self) -> None:
+        """Atualiza gradualmente a velocidade e o intervalo dos resíduos."""
+
+        # O nível sobe a cada cinco resíduos processados, tanto em acertos
+        # quanto em erros. Assim, a dificuldade depende do avanço da partida,
+        # não da pontuação, e segue um ritmo previsível.
+        self.level = (self.items_processed // self.ITEMS_PER_LEVEL) + 1
+        level_steps = self.level - 1
+
+        # A velocidade aumenta de forma moderada e possui um limite máximo.
+        self.fall_speed = min(
+            self.MAX_FALL_SPEED,
+            self.INITIAL_FALL_SPEED
+            + self.FALL_SPEED_PER_LEVEL * level_steps,
+        )
+
+        # O intervalo entre resíduos diminui aos poucos, sem ficar curto
+        # demais. O limite mínimo evita uma sequência excessivamente rápida.
+        self.spawn_interval = max(
+            self.MIN_SPAWN_INTERVAL,
+            self.INITIAL_SPAWN_INTERVAL
+            - self.SPAWN_INTERVAL_REDUCTION * level_steps,
+        )
 
     def _resolve_item(self) -> None:
         """Classifica o resíduo e atualiza a partida."""
@@ -1623,14 +1661,7 @@ class EcoDropGame:
         # PROGRESSÃO DE DIFICULDADE
         # ------------------------------------------
 
-        self.level = (
-            self.items_processed // 5
-        ) + 1
-
-        self.fall_speed = min(
-            5.0,
-            2.8 + 0.25 * (self.level - 1),
-        )
+        self._update_difficulty()
 
         # ------------------------------------------
         # ANIMAÇÃO DE SAÍDA
@@ -2731,6 +2762,30 @@ class EcoDropGame:
             self.WHITE,
             topleft=(650, 26),
         )
+
+        # Cada segmento representa um resíduo processado em direção
+        # ao próximo nível. O indicador reinicia quando o nível aumenta.
+        level_progress = self.items_processed % self.ITEMS_PER_LEVEL
+        for index in range(self.ITEMS_PER_LEVEL):
+            progress_rect = pygame.Rect(
+                650 + index * 25,
+                49,
+                21,
+                6,
+            )
+            pygame.draw.rect(
+                self.screen,
+                (38, 58, 68),
+                progress_rect,
+                border_radius=3,
+            )
+            if index < level_progress:
+                pygame.draw.rect(
+                    self.screen,
+                    self.GREEN,
+                    progress_rect,
+                    border_radius=3,
+                )
 
         pygame.draw.line(
             self.screen,
