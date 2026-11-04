@@ -16,6 +16,7 @@ from src.item import WasteItem
 from src.modes import GAME_MODES, MODE_ELECTRONIC, MODE_GENERAL
 from src.records import RecordManager
 from src.settings_manager import SettingsManager
+from src.stats_manager import StatisticsManager
 from src.quiz_content import QUIZ_QUESTIONS
 
 class EcoDropGame:
@@ -42,6 +43,7 @@ class EcoDropGame:
     QUIZ = "quiz"
     QUIZ_RESULT = "quiz_result"
     ACHIEVEMENTS = "achievements"
+    STATISTICS = "statistics"
     SETTINGS = "settings"
 
     WIDTH = 800
@@ -152,6 +154,8 @@ class EcoDropGame:
         self.records = RecordManager()
         # Conquistas e estatísticas acumuladas entre partidas.
         self.achievements = AchievementManager()
+        # Estatísticas independentes para Reciclagem Geral e Lixo Eletrônico.
+        self.statistics = StatisticsManager()
 
         # Indica se a partida atual estabeleceu um recorde.
         self.new_record = False
@@ -175,6 +179,15 @@ class EcoDropGame:
 
         self.settings_button_rect = pygame.Rect(
             420, 440, 220, 48
+        )
+
+        # Abre o painel com o desempenho acumulado em cada modalidade.
+        self.statistics_button_rect = pygame.Rect(
+            285, 495, 230, 40
+        )
+
+        self.statistics_back_button_rect = pygame.Rect(
+            300, 500, 200, 44
         )
 
         # Controles da tela de configurações.
@@ -680,6 +693,9 @@ class EcoDropGame:
         self.combo = 0
 
         self.items_processed = 0
+        self.round_correct = 0
+        self.round_incorrect = 0
+        self.statistics_recorded = False
         self.level = 1
 
         # A dificuldade sempre começa igual em uma nova partida.
@@ -884,6 +900,30 @@ class EcoDropGame:
 
         self.current_question = None
         self.state = self.GAME_OVER
+
+    # ==================================================
+    # REGISTRAR ESTATÍSTICAS DA PARTIDA
+    # ==================================================
+
+    def _record_round_statistics(self) -> None:
+        """Salva uma única vez o resultado de uma partida concluída."""
+
+        if self.statistics_recorded:
+            return
+
+        mode_key = (
+            "electronic"
+            if self.selected_mode == MODE_ELECTRONIC
+            else "general"
+        )
+
+        self.statistics.record_completed_game(
+            mode=mode_key,
+            score=self.score,
+            correct=self.round_correct,
+            incorrect=self.round_incorrect,
+        )
+        self.statistics_recorded = True
 
     # ==================================================
     # INICIAR PARTIDA
@@ -1104,12 +1144,24 @@ class EcoDropGame:
                         elif self.settings_button_rect.collidepoint(logical_mouse_pos):
                             self.state = self.SETTINGS
 
+                        # Consultar estatísticas das duas modalidades.
+                        elif self.statistics_button_rect.collidepoint(logical_mouse_pos):
+                            self.state = self.STATISTICS
+
                     # --------------------------------------
                     # PÁGINA DE CONQUISTAS
                     # --------------------------------------
 
                     elif self.state == self.ACHIEVEMENTS:
                         if self.mode_back_button_rect.collidepoint(logical_mouse_pos):
+                            self.state = self.MENU
+
+                    # --------------------------------------
+                    # ESTATÍSTICAS
+                    # --------------------------------------
+
+                    elif self.state == self.STATISTICS:
+                        if self.statistics_back_button_rect.collidepoint(logical_mouse_pos):
                             self.state = self.MENU
 
                     # --------------------------------------
@@ -1248,11 +1300,19 @@ class EcoDropGame:
                 elif event.key == pygame.K_s:
                     self.state = self.SETTINGS
 
+                elif event.key == pygame.K_e:
+                    self.state = self.STATISTICS
+
             # ----------------------------------------------
             # CONQUISTAS
             # ----------------------------------------------
 
             elif self.state == self.ACHIEVEMENTS:
+
+                if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
+                    self.state = self.MENU
+
+            elif self.state == self.STATISTICS:
 
                 if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
                     self.state = self.MENU
@@ -1541,6 +1601,8 @@ class EcoDropGame:
 
         if item.category == target_bin.category:
 
+            self.round_correct += 1
+
             self.highlighted_bins = {
                 landed_lane: self.GREEN
             }
@@ -1593,6 +1655,8 @@ class EcoDropGame:
         # ------------------------------------------
 
         else:
+
+            self.round_incorrect += 1
 
             self.highlighted_bins = {
                 landed_lane: self.RED,
@@ -1682,6 +1746,7 @@ class EcoDropGame:
         if self.lives <= 0:
 
             self.state = self.GAME_OVER
+            self._record_round_statistics()
 
             self.audio.play_game_over()
 
@@ -1891,18 +1956,18 @@ class EcoDropGame:
             border_color=(49, 130, 206),
         )
 
-        self._draw_text(
-            "Clique em um botão ou use o teclado",
-            self.font_small,
-            self.GRAY,
-            center=(400, 510),
+        self._draw_menu_button(
+            rect=self.statistics_button_rect,
+            label="ESTATÍSTICAS",
+            hovered=self.statistics_button_rect.collidepoint(mouse_position),
+            border_color=(52, 211, 153),
         )
 
         self._draw_text(
-            "ENTER: jogar | I: instruções | C: conquistas | S: configurações | F11: tela cheia",
+            "ENTER: jogar | I: instruções | C: conquistas | E: estatísticas | S: configurações",
             self.font_small,
             self.GREEN,
-            center=(400, 535),
+            center=(400, 550),
         )
 
         self._draw_text(
@@ -2125,6 +2190,98 @@ class EcoDropGame:
             self.font_normal,
             self.WHITE,
             center=self.mode_back_button_rect.center,
+        )
+
+    # ==================================================
+    # ESTATÍSTICAS
+    # ==================================================
+
+    def _draw_statistics(self) -> None:
+        """Mostra partidas, recordes e aproveitamento por modalidade."""
+
+        self.screen.blit(self.background_surface, (0, 0))
+
+        self._draw_text(
+            "ESTATÍSTICAS",
+            self.font_title,
+            self.GREEN,
+            center=(400, 72),
+        )
+        self._draw_text(
+            "Seu desempenho acumulado em cada modalidade",
+            self.font_normal,
+            self.GRAY,
+            center=(400, 120),
+        )
+
+        panels = [
+            (
+                pygame.Rect(45, 165, 345, 285),
+                "RECICLAGEM GERAL",
+                "general",
+                (49, 130, 206),
+            ),
+            (
+                pygame.Rect(410, 165, 345, 285),
+                "LIXO ELETRÔNICO",
+                "electronic",
+                (52, 211, 153),
+            ),
+        ]
+
+        for rect, title, mode_key, accent in panels:
+            stats = self.statistics.get_mode_stats(mode_key)
+
+            pygame.draw.rect(
+                self.screen, (20, 36, 52), rect, border_radius=15
+            )
+            pygame.draw.rect(
+                self.screen, accent, rect, width=2, border_radius=15
+            )
+
+            self._draw_text(
+                title,
+                self.font_subtitle,
+                accent,
+                center=(rect.centerx, rect.y + 38),
+            )
+
+            lines = [
+                ("Partidas concluídas", str(stats["games_played"])),
+                ("Maior pontuação", str(stats["best_score"])),
+                ("Resíduos classificados", str(stats["total_classifications"])),
+                ("Acertos", str(stats["correct_classifications"])),
+                ("Erros", str(stats["incorrect_classifications"])),
+                ("Taxa de acerto", f"{stats['accuracy_rate']:.1f}%"),
+            ]
+
+            for index, (label, value) in enumerate(lines):
+                y = rect.y + 88 + index * 30
+                self._draw_text(
+                    label,
+                    self.font_small,
+                    self.GRAY,
+                    topleft=(rect.x + 18, y),
+                )
+                self._draw_text(
+                    value,
+                    self.font_small,
+                    self.WHITE,
+                    topleft=(rect.right - 82, y),
+                )
+
+        mouse_position = self._get_logical_mouse_pos()
+        self._draw_menu_button(
+            self.statistics_back_button_rect,
+            "VOLTAR AO MENU",
+            self.statistics_back_button_rect.collidepoint(mouse_position),
+            self.GRAY,
+        )
+        self._draw_text(
+            "As partidas são contabilizadas ao chegar ao fim de jogo.",
+            self.font_small,
+            self.GRAY,
+            center=(400, 565),
         )
 
     # ==================================================
@@ -3364,6 +3521,10 @@ class EcoDropGame:
         elif self.state == self.ACHIEVEMENTS:
 
             self._draw_achievements()
+
+        elif self.state == self.STATISTICS:
+
+            self._draw_statistics()
 
         elif self.state == self.SETTINGS:
 
