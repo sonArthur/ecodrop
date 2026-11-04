@@ -22,3 +22,5 @@ Thumbs.db
 # Dados locais das partidas
 data/record.json
 data/record.tmp
+data/settings.json
+data/achievements.json
