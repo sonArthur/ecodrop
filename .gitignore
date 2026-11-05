@@ -28,3 +28,8 @@ data/achievements.json
 # Estatísticas locais
 data/statistics.json
 data/statistics.json.tmp
+
+# Arquivos gerados pelo PyInstaller
+/build/
+/dist/
+*.spec
