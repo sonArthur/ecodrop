@@ -114,7 +114,7 @@ class EcoDropGame:
         self._update_viewport()
 
         pygame.display.set_caption(
-            "EcoDrop | Son Games"
+            "EcoDrop | Jogo de Reciclagem e Educação Ambiental"
         )
 
         self.clock = pygame.time.Clock()
@@ -1971,7 +1971,7 @@ class EcoDropGame:
         )
 
         self._draw_text(
-            "Son Games | Projeto em desenvolvimento",
+            "EcoDrop | Projeto em desenvolvimento",
             self.font_small,
             self.GRAY,
             center=(400, 570),
